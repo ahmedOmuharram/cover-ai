@@ -18,3 +18,13 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     console.log(Date.now(), "Selected text: ", selectedText);
   }
 });
+
+// Handle the toolbar icon click
+chrome.action.onClicked.addListener((tab) => {
+  // Check if the click happened on a valid tab with an ID
+  if (tab.id) {
+    // Open the side panel in the window the tab belongs to
+    chrome.sidePanel.open({ windowId: tab.windowId })
+      .catch(error => console.error('Error opening side panel on action click:', error));
+  }
+});

@@ -11,11 +11,14 @@
     "512": "images/android-chrome-512x512.png"
   },
   "offline_enabled": true,
-  "permissions": ["storage", "activeTab", "contextMenus"],
+  "permissions": ["storage", "activeTab", "contextMenus", "sidePanel", "tabs"],
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "index.html"
+    "default_title": "Cover AI"
+  },
+  "side_panel": {
+    "default_path": "index.html"
   }
 }
