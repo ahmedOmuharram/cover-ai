@@ -1,3 +1,5 @@
+import * as pdfjsLib from 'pdfjs-dist';
+
 const DB_NAME = 'CoverLetterDB';
 const COVER_LETTER_STORE = 'coverLetters';
 const RESUME_STORE = 'resumes';
@@ -11,7 +13,7 @@ interface DocumentRecord {
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
-
+pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.mjs');
 /**
  * Opens and returns the IndexedDB database instance.
  * Handles database creation and upgrades.
@@ -55,6 +57,42 @@ const getDb = (): Promise<IDBDatabase> => {
 };
 
 /**
+ * Extracts text content from a PDF file.
+ * Uses pdf.js library with disabled worker for local processing.
+ * @param {File} file - The PDF file to extract text from.
+ * @returns {Promise<string>} A promise that resolves with the extracted text content.
+ */
+export async function extractTextFromPDF(file: File): Promise<string> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    
+    const pdf = await pdfjsLib.getDocument({
+      data: arrayBuffer,
+    }).promise;
+
+    let fullText = '';
+
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+
+      const pageText = content.items
+        .map((item: any) => ('str' in item ? item.str : ''))
+        .join(' ');
+
+      fullText += pageText + '\n';
+    }
+
+    console.log(`Successfully extracted text from PDF: ${file.name}`);
+    return fullText.trim();
+  } catch (error) {
+    console.error('Error extracting text from PDF:', error);
+    throw new Error('Failed to extract text from PDF');
+  }
+}
+
+/**
  * Generic function to add a document (File) to a specified object store.
  * Reads the file content as text before storing.
  * @param {string} storeName - The name of the object store (e.g., 'coverLetters', 'resumes').
@@ -63,7 +101,9 @@ const getDb = (): Promise<IDBDatabase> => {
  */
 const addDocument = async (storeName: string, file: File): Promise<number> => {
   const db = await getDb();
-  const content = await file.text(); // Read file content as text
+  console.log(`Adding document to ${storeName}:`, file.name);
+  const content = await extractTextFromPDF(file); // Read file content as text
+  console.log(content);
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(storeName, 'readwrite');
     const store = transaction.objectStore(storeName);

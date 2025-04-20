@@ -20,5 +20,11 @@
   },
   "side_panel": {
     "default_path": "index.html"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["pdf.worker.min.mjs"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }
