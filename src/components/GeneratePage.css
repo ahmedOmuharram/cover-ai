@@ -36,6 +36,10 @@
     height: 35px;
 }
 
+/* Make upload box border use theme color on hover */
+.resume-upload-section .file-upload-box:hover {
+    border-color: #570424; /* Main color */
+}
 
 .selections {
   margin-bottom: 20px;
@@ -66,7 +70,7 @@
 
 .generate-button {
   padding: 10px 20px;
-  background-color: #007bff;
+  background-color: #570424; /* Main color */
   color: white;
   border: none;
   border-radius: 5px;
@@ -80,7 +84,7 @@
 }
 
 .generate-button:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: #8f4362; /* Lighter hover color */
 }
 
 .generate-button:disabled {

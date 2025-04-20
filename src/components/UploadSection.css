@@ -40,8 +40,8 @@
 }
 
 .file-upload-box:hover {
-  background-color: #dde7f2; /* Slightly darker on hover */
-  border-color: #0056b3; /* RE-ADD blue border color on hover */
+  background-color: #8f4362; /* Slightly darker on hover */
+  border-color: #570424; /* Main color for hover border */
 }
 
 /* Placeholder style for the icon */

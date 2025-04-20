@@ -65,7 +65,7 @@
 
 .upload-new-button {
   padding: 12px 24px;
-  background-color: #2196F3;  /* Changed to Material Blue */
+  background-color: #570424;
   color: white;
   border: none;
   border-radius: 8px;
@@ -79,14 +79,14 @@
 }
 
 .upload-new-button:hover {
-  background-color: #1976D2;  /* Darker shade for hover */
+  background-color: #931244;  /* Darker shade for hover */
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);  /* Updated shadow color */
 }
 
 .upload-new-button:active {
   transform: translateY(0);
-  background-color: #1565C0;  /* Even darker shade for active state */
+  background-color: #c90953;  /* Even darker shade for active state */
 }
 
 .document-list {

@@ -21,11 +21,11 @@
 
 .nav-item:hover,
 .nav-item:focus { /* Add focus style for keyboard navigation */
-  color: #0056b3; /* Darker blue on hover/focus */
+  color: #8f4362; /* Lighter hover color */
 }
 
 .nav-item.active {
-  color: #007bff; /* Active color (brighter blue) */
+  color: #570424; /* Main color for active text */
   font-weight: 600; /* Make active item slightly bolder */
 }
 
@@ -37,7 +37,7 @@
   left: 0;
   right: 0;
   height: 3px; /* Thickness of the underline */
-  background-color: #007bff; /* Color of the underline */
+  background-color: #570424; /* Main color for underline */
   width: 0; /* Initially hidden */
   transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Smooth animation */
 }
