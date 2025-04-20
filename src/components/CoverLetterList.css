@@ -1,0 +1,59 @@
+.cover-letter-list {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-header {
+  text-align: center;
+  margin-bottom: 15px;
+  flex-shrink: 0;
+}
+
+.list-header h2 {
+  margin: 0;
+}
+
+.cover-letter-list ul,
+.cover-letter-list .no-letters-message {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 15px 0;
+  overflow-y: auto;
+}
+
+.cover-letter-list .no-letters-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+}
+
+.cover-letter-list li {
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  padding: 8px 12px;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.list-footer {
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.upload-new-button {
+  padding: 8px 15px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.2s ease;
+}
+
+.upload-new-button:hover {
+  background-color: #218838;
+} 

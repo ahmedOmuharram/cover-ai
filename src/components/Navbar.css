@@ -1,0 +1,25 @@
+.navbar {
+  display: flex;
+  justify-content: space-around; /* Or space-between, flex-start, etc. */
+  align-items: center;
+  background-color: #f0f0f0; /* Example background color */
+  border-bottom: 1px solid #ccc; /* Optional border */
+}
+
+.nav-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em; /* Slightly smaller font */
+}
+
+.nav-button:hover {
+  background-color: #0056b3;
+}
+
+.nav-button.active {
+  background-color: #004085; /* Darker background for active button */
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); /* Optional inset shadow */
+} 

@@ -1,0 +1,119 @@
+/* src/components/GeneratePage.css */
+.generate-page {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.generate-page h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.resume-upload-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background-color: #fdfdfd;
+  flex-shrink: 0;
+}
+/* Target the h2 inside the upload section specifically */
+.resume-upload-section .upload-section h2 {
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+/* Make upload box smaller */
+.resume-upload-section .file-upload-box {
+    height: 100px;
+    padding: 10px;
+    max-width: 250px;
+}
+.resume-upload-section .upload-icon-placeholder {
+    width: 35px;
+    height: 35px;
+}
+
+
+.selections {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.select-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* Align labels left */
+}
+
+.select-group label {
+  margin-bottom: 5px;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.select-group select {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  min-width: 150px; /* Ensure selects have some width */
+}
+
+.generate-button {
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+  align-self: center; /* Center button */
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.generate-button:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+.generate-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: red;
+  text-align: center;
+  margin-bottom: 15px;
+  flex-shrink: 0;
+}
+
+.prompt-output {
+  margin-top: 15px;
+  border: 1px solid #eee;
+  border-radius: 5px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  flex-grow: 1; /* Allow output to take remaining space */
+  overflow-y: auto; /* Allow scrolling for long output */
+  text-align: left; /* Align text left */
+}
+
+.prompt-output h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.prompt-output pre {
+  white-space: pre-wrap; /* Wrap long lines */
+  word-wrap: break-word; /* Break words if necessary */
+  margin: 0;
+  font-family: monospace;
+  font-size: 0.9em;
+} 

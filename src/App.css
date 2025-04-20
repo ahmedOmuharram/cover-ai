@@ -1,10 +1,47 @@
-.App {
-    color: black;
-    text-align: center;
+/* Make body a flex container to center .App */
+body {
+  display: flex;
+  align-items: center; /* Vertical centering */
+  justify-content: center; /* Horizontal centering */
+  height: 100vh; /* Ensure body takes full viewport height */
+  width: 100vw; /* Ensure body takes full viewport width */
+  margin: 0; /* Remove default body margin */
+  padding: 0;
+  overflow-x: hidden; /* Explicitly hide horizontal scrollbar */
+  overflow-y: hidden; /* Explicitly hide vertical scrollbar */
 }
 
-.container {
-  width: 400px;
-  padding: 1rem;
-  background-color: white;
+.App {
+  color: black;
+  text-align: center;
+  height: 100vh; /* Use 100% of viewport height */
+  width: 100vw; /* Keep full width or adjust as needed, e.g., 90% */
+  overflow-x: hidden; /* Explicitly hide horizontal scrollbar */
+  overflow-y: hidden; /* Explicitly hide vertical scrollbar */
+  display: flex; /* Enable flexbox */
+  flex-direction: column; /* Stack children vertically */
+  background-color: white; /* Add a background to distinguish from body */
+  border-radius: 8px; /* Optional: rounded corners */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Optional: subtle shadow */
+}
+
+/* Adjust Navbar */
+.navbar {
+  flex-shrink: 0; /* Prevent navbar from shrinking */
+  border-top-left-radius: 8px; /* Match App's border-radius */
+  border-top-right-radius: 8px;
+}
+
+/* Style for the main content area */
+.content-area { 
+  flex-grow: 1; /* Allow content area to take remaining space */
+  overflow-y: auto; /* Allow vertical scroll ONLY within this area if content overflows */
+  overflow-x: hidden; /* Prevent horizontal scroll within content area */
+}
+
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-grow: 1; /* Allow loading indicator to center in flex container */
 }
