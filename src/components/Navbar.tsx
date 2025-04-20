@@ -9,30 +9,52 @@ interface NavbarProps {
 }
 
 const Navbar: React.FC<NavbarProps> = ({ activeView, onNavClick }) => {
-  const getButtonClass = (view: ActiveView) => {
-    return `nav-button ${activeView === view ? 'active' : ''}`;
+  const getItemClass = (view: ActiveView) => {
+    return `nav-item ${activeView === view ? 'active' : ''}`;
   };
 
   return (
     <nav className="navbar">
-      <button 
-        className={getButtonClass('generate')} 
+      <div 
+        className={getItemClass('upload')} 
+        onClick={() => onNavClick('upload')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('upload')}
+      >
+        Upload CL
+        <span className="underline"></span>
+      </div>
+      <div 
+        className={getItemClass('view')}
+        onClick={() => onNavClick('view')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('view')}
+      >
+        View Letters
+        <span className="underline"></span>
+      </div>
+      <div 
+        className={getItemClass('generate')} 
         onClick={() => onNavClick('generate')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('generate')}
       >
         Generate
-      </button>
-      <button 
-        className={getButtonClass('view')}
-        onClick={() => onNavClick('view')}
-      >
-        Files
-      </button>
-      <button 
-        className={getButtonClass('settings')} 
+        <span className="underline"></span>
+      </div>
+      <div 
+        className={getItemClass('settings')} 
         onClick={() => onNavClick('settings')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('settings')}
       >
         Settings
-      </button>
+        <span className="underline"></span>
+      </div>
     </nav>
   );
 };
