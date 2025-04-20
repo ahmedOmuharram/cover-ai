@@ -38,16 +38,16 @@
 
 
 .selections {
-  display: flex;
-  justify-content: space-around;
   margin-bottom: 20px;
   flex-shrink: 0;
 }
 
 .select-group {
-  display: flex;
+  margin-bottom: 15px; /* Add space between the groups */
+  width: 100%; /* Make group take full width for centering select */
+  display: flex; /* Use flex to center select within group */
   flex-direction: column;
-  align-items: flex-start; /* Align labels left */
+  align-items: center; /* Center label and select */
 }
 
 .select-group label {
@@ -60,7 +60,8 @@
   padding: 8px;
   border-radius: 4px;
   border: 1px solid #ccc;
-  min-width: 150px; /* Ensure selects have some width */
+  min-width: 200px; /* Adjust width as needed */
+  max-width: 80%; /* Prevent select from becoming too wide */
 }
 
 .generate-button {
