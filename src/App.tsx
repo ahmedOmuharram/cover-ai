@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import "./App.css";
 import Navbar, { ActiveView } from "./components/Navbar";
 import UploadSection from "./components/UploadSection";
@@ -22,11 +22,14 @@ interface Document {
   // Content is not needed in the main App state if only showing names in CoverLetterList
 }
 
+export type ToneSetting = 'professional' | 'friendly' | 'casual'; // Define possible tones
+
 function App() {
   const [coverLetters, setCoverLetters] = useState<Document[]>([]);
   const [resumes, setResumes] = useState<Document[]>([]); // Add resumes state
   const [activeView, setActiveView] = useState<ActiveView>("generate"); // Default to 'generate' letters
   const [isLoading, setIsLoading] = useState(true); // Track initial loading
+  const [tone, setTone] = useState<ToneSetting>('professional'); // Add state for tone
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -44,6 +47,26 @@ function App() {
       } else {
         if(activeView !== 'generate') setActiveView('upload');
       }
+
+      // Load saved tone
+      chrome.storage.local.get(['tone'], (result) => {
+        if (result.tone) {
+           // Validate loaded tone against defined types
+           const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
+           if (validTones.includes(result.tone)) {
+              setTone(result.tone as ToneSetting);
+              console.log('Loaded tone:', result.tone);
+           } else {
+              console.warn('Loaded invalid tone from storage:', result.tone, 'Defaulting to professional.');
+              setTone('professional'); // Default if invalid
+              chrome.storage.local.set({ tone: 'professional' }); // Save default
+           }
+        } else {
+           console.log('No tone found in storage, defaulting to professional.');
+           setTone('professional'); // Default if not found
+           chrome.storage.local.set({ tone: 'professional' }); // Save default
+        }
+      });
     } catch (error) {
       console.error('Failed to load documents:', error);
       setCoverLetters([]); // Ensure empty state on error
@@ -132,6 +155,14 @@ function App() {
     }
   };
 
+  // Handler to change and save tone
+  const handleToneChange = (newTone: ToneSetting) => {
+    setTone(newTone);
+    chrome.storage.local.set({ tone: newTone }, () => {
+      console.log('Tone saved:', newTone);
+    });
+  };
+
   return (
     <div className="App">
       {/* Loading State */}
@@ -174,25 +205,63 @@ function App() {
                 {activeView === 'generate' && <GeneratePage />} 
 
                 {activeView === 'settings' && 
-                  <div style={{padding: '20px'}}> 
+                  <div className="settings-page" style={{padding: '20px'}}> 
                     <h2>Settings</h2>
-                    <p>Settings content will go here.</p>
                     
-                    <button 
-                      onClick={handleClearDatabase} 
-                      style={{
-                        marginTop: '20px',
-                        padding: '8px 15px',
-                        fontSize: '0.9em',
-                        backgroundColor: '#dc3545',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Clear All Data (Letters & Resumes)
-                    </button>
+                    {/* Tone Selection Setting */}
+                    <div className="setting-item" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      marginBottom: '15px'
+                    }}>
+                      <label htmlFor="tone-select" style={{
+                        marginRight: '10px',
+                        fontWeight: 'bold',
+                        flexShrink: 0
+                      }}>
+                        Generation Tone:
+                      </label>
+                      <select 
+                        id="tone-select"
+                        value={tone} 
+                        onChange={(e) => handleToneChange(e.target.value as ToneSetting)}
+                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', minWidth: '150px' }}
+                      >
+                        <option value="professional">Professional</option>
+                        <option value="friendly">Friendly</option>
+                        <option value="casual">Casual</option>
+                      </select>
+                    </div>
+                    
+                    {/* Clear Data Button Setting */}
+                    <div className="setting-item" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      marginBottom: '15px'
+                     }}>
+                      <label style={{
+                        marginRight: '10px',
+                        fontWeight: 'bold',
+                         flexShrink: 0
+                      }}>
+                        Manage Data:
+                      </label>
+                      <button 
+                        onClick={handleClearDatabase} 
+                        style={{
+                          padding: '8px 15px',
+                          fontSize: '0.9em',
+                          backgroundColor: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Clear All Data (Letters & Resumes)
+                      </button>
+                    </div>
+
                   </div>
                 }
               </div>

@@ -1,5 +1,6 @@
 // src/components/GeneratePage.tsx
 import React, { useState, useEffect } from 'react';
+import { ToneSetting } from '../App'; // Import ToneSetting type from App
 import {
   getAllCoverLetters,
   getCoverLetterContent,
@@ -21,23 +22,40 @@ const GeneratePage: React.FC = () => {
   const [promptOutput, setPromptOutput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [tone, setTone] = useState<ToneSetting>('professional'); // Add state for tone
 
-  const loadDocuments = async () => {
-    try {
-      const [clData, resumeData] = await Promise.all([
-        getAllCoverLetters(),
-        getAllResumes()
-      ]);
-      setCoverLetters(clData.map(d => ({ id: d.id, name: d.name })));
-      setResumes(resumeData.map(d => ({ id: d.id, name: d.name })));
-    } catch (err) {
-      console.error("Error loading documents:", err);
-      setError("Failed to load documents.");
-    }
-  };
-
+  // Load documents and tone
   useEffect(() => {
-    loadDocuments();
+    const loadData = async () => {
+      try {
+        // Load documents
+        const [clData, resumeData] = await Promise.all([
+          getAllCoverLetters(),
+          getAllResumes()
+        ]);
+        setCoverLetters(clData.map(d => ({ id: d.id, name: d.name })));
+        setResumes(resumeData.map(d => ({ id: d.id, name: d.name })));
+
+        // Load saved tone
+        chrome.storage.local.get(['tone'], (result) => {
+          if (result.tone) {
+            const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
+            if (validTones.includes(result.tone)) {
+              setTone(result.tone as ToneSetting);
+              console.log('GeneratePage loaded tone:', result.tone);
+            } else {
+              setTone('professional'); // Default if invalid
+            }
+          } else {
+            setTone('professional'); // Default if not found
+          }
+        });
+      } catch (err) {
+        console.error("Error loading documents:", err);
+        setError("Failed to load documents.");
+      }
+    };
+    loadData();
   }, []);
 
   const handleGenerate = async () => {
@@ -66,6 +84,7 @@ const GeneratePage: React.FC = () => {
 
       // --- Start Prompt Formatting ---
       const generatedPrompt = `
+        Tone: ${tone}
         Cover Letter:
         ${coverLetterContent}
 
