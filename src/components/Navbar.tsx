@@ -16,13 +16,13 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onNavClick }) => {
   return (
     <nav className="navbar">
       <div 
-        className={getItemClass('upload')} 
-        onClick={() => onNavClick('upload')}
+        className={getItemClass('generate')} 
+        onClick={() => onNavClick('generate')}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('upload')}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('generate')}
       >
-        Upload CL
+        Generate Prompt
         <span className="underline"></span>
       </div>
       <div 
@@ -32,17 +32,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onNavClick }) => {
         tabIndex={0}
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('view')}
       >
-        View Letters
-        <span className="underline"></span>
-      </div>
-      <div 
-        className={getItemClass('generate')} 
-        onClick={() => onNavClick('generate')}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('generate')}
-      >
-        Generate
+        My Letters
         <span className="underline"></span>
       </div>
       <div 
