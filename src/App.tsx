@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import Navbar, { ActiveView } from "./components/Navbar";
 import UploadSection from "./components/UploadSection";
-import CoverLetterList from "./components/CoverLetterList";
+import DocumentList from "./components/DocumentList";
 import GeneratePage from "./components/GeneratePage";
 import {
   addCoverLetter,
   getAllCoverLetters,
   clearDatabase,
   getAllResumes,
+  addResume,
 } from "./utils/indexedDB";
 
 interface Document {
@@ -19,6 +20,7 @@ interface Document {
 
 function App() {
   const [coverLetters, setCoverLetters] = useState<Document[]>([]);
+  const [resumes, setResumes] = useState<Document[]>([]); // Add resumes state
   const [activeView, setActiveView] = useState<ActiveView>("generate"); // Default to 'generate' letters
   const [isLoading, setIsLoading] = useState(true); // Track initial loading
 
@@ -31,8 +33,9 @@ function App() {
         getAllResumes()
       ]);
       setCoverLetters(letters.map(l => ({ id: l.id, name: l.name }))); // Map to simple Document for state
+      setResumes(resumes.map(r => ({ id: r.id, name: r.name }))); // Add this line to update resumes state
 
-      if (letters.length > 0) {
+      if (letters.length > 0 || resumes.length > 0) { // Update condition to check for both
         setActiveView('view');
       } else {
         if(activeView !== 'generate') setActiveView('upload');
@@ -40,6 +43,7 @@ function App() {
     } catch (error) {
       console.error('Failed to load documents:', error);
       setCoverLetters([]); // Ensure empty state on error
+      setResumes([]); // Also reset resumes on error
     } finally {
       setIsLoading(false);
     }
@@ -62,13 +66,33 @@ function App() {
     }
   };
 
+  // Add new handler for resumes
+  const handleResumeUpload = async (file: File) => {
+    try {
+      const newResumeId = await addResume(file);
+      const newResume: Document = { id: newResumeId, name: file.name };
+      setResumes(prevResumes => [...prevResumes, newResume]);
+    } catch (error) {
+      console.error('Failed to add resume:', error);
+    }
+  };
+
+  // Combined file upload handler for the DocumentList component
+  const handleFileUpload = async (file: File, type: 'resume' | 'letter') => {
+    if (type === 'resume') {
+      await handleResumeUpload(file);
+    } else {
+      await handleCoverLetterUpload(file);
+    }
+  };
+
   // Handler for clearing the DB (now clears both stores)
   const handleClearDatabase = async () => {
     if (window.confirm('Are you sure you want to clear ALL cover letters and resumes? This cannot be undone.')) {
       try {
         await clearDatabase(); // Clears both stores by default
         setCoverLetters([]);
-        // setResumes([]); // TODO: Add this when we have resumes
+        setResumes([]); // Uncomment this line
         setActiveView('upload'); // Force back to upload view if needed
       } catch (error) {
         console.error('Failed to clear database:', error);
@@ -96,19 +120,19 @@ function App() {
               {/* Wrap conditional content in a div with content-area class */}
               <div className="content-area">
                 {/* Conditionally render content based on activeView */} 
-                {activeView === 'view' && coverLetters.length > 0 && // Only show view if letters exist
-                  <CoverLetterList 
-                    letters={coverLetters} 
-                    // Pass the specific cover letter upload handler
-                    onFileUpload={handleCoverLetterUpload} 
+                {activeView === 'view' && (coverLetters.length > 0 || resumes.length > 0) && 
+                  <DocumentList 
+                    letters={coverLetters}
+                    resumes={resumes}
+                    onFileUpload={handleFileUpload}
                   />
                 }
                 
                 {activeView === 'upload' && 
                   // This section now ONLY uploads cover letters
                   <UploadSection 
-                    title="Upload Cover Letter" // Simplified title
-                    onFileUpload={handleCoverLetterUpload} 
+                    title="Upload Cover Letter" 
+                    onFileUpload={(file) => handleFileUpload(file, 'letter')} 
                   />
                 }
 

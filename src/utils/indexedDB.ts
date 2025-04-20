@@ -133,6 +133,76 @@ const getDocumentContent = async (storeName: string, id: number): Promise<string
     });
 };
 
+/**
+ * Generic function to delete a single document by its ID from a specified store.
+ * @param {string} storeName - The name of the object store.
+ * @param {number} id - The ID of the document to delete.
+ * @returns {Promise<void>} A promise that resolves when the document is deleted.
+ */
+const deleteDocument = async (storeName: string, id: number): Promise<void> => {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    const request = store.delete(id);
+
+    request.onsuccess = () => {
+      console.log(`Document with id ${id} deleted from ${storeName}`);
+      resolve();
+    };
+    request.onerror = (event) => {
+      console.error(`Error deleting document from ${storeName}:`, (event.target as IDBRequest).error);
+      reject(`Error deleting document from ${storeName}`);
+    };
+  });
+};
+
+/**
+ * Generic function to rename a document by its ID in a specified store.
+ * @param {string} storeName - The name of the object store.
+ * @param {number} id - The ID of the document to rename.
+ * @param {string} newName - The new name for the document.
+ * @returns {Promise<void>} A promise that resolves when the document is renamed.
+ */
+const renameDocument = async (storeName: string, id: number, newName: string): Promise<void> => {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    
+    // First get the existing document
+    const getRequest = store.get(id);
+    
+    getRequest.onsuccess = () => {
+      const document = getRequest.result;
+      if (!document) {
+        reject(`Document with id ${id} not found in ${storeName}`);
+        return;
+      }
+
+      // Update the name
+      document.name = newName;
+      
+      // Put the updated document back
+      const putRequest = store.put(document);
+      
+      putRequest.onsuccess = () => {
+        console.log(`Document ${id} renamed to ${newName} in ${storeName}`);
+        resolve();
+      };
+      
+      putRequest.onerror = (event) => {
+        console.error(`Error renaming document in ${storeName}:`, (event.target as IDBRequest).error);
+        reject(`Error renaming document in ${storeName}`);
+      };
+    };
+    
+    getRequest.onerror = (event) => {
+      console.error(`Error getting document for rename from ${storeName}:`, (event.target as IDBRequest).error);
+      reject(`Error getting document for rename from ${storeName}`);
+    };
+  });
+};
 
 // --- Specific Functions ---
 
@@ -220,4 +290,12 @@ export const clearDatabase = async (storeName?: string): Promise<void> => {
         reject('Error clearing database stores');
     };
   });
-}; 
+};
+
+// Export specific functions for cover letters
+export const deleteCoverLetter = (id: number) => deleteDocument(COVER_LETTER_STORE, id);
+export const renameCoverLetter = (id: number, newName: string) => renameDocument(COVER_LETTER_STORE, id, newName);
+
+// Export specific functions for resumes
+export const deleteResume = (id: number) => deleteDocument(RESUME_STORE, id);
+export const renameResume = (id: number, newName: string) => renameDocument(RESUME_STORE, id, newName);
