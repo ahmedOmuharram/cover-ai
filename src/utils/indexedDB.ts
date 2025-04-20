@@ -2,7 +2,6 @@ const DB_NAME = 'CoverLetterDB';
 const COVER_LETTER_STORE = 'coverLetters';
 const RESUME_STORE = 'resumes';
 const DB_VERSION = 1;
-const TIMEOUT_DURATION = 3000; // 3 seconds
 
 interface DocumentRecord {
   id: number;
@@ -24,11 +23,35 @@ const getDb = (): Promise<IDBDatabase> => {
     return dbPromise;
   }
   dbPromise = new Promise((resolve, reject) => {
-    // TODO: Implement database creation and upgrade logic
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event) => {
+      console.log('Database upgrade needed.');
+      const db = (event.target as IDBOpenDBRequest).result;
+      // Create cover letter store if it doesn't exist
+      if (!db.objectStoreNames.contains(COVER_LETTER_STORE)) {
+        db.createObjectStore(COVER_LETTER_STORE, { keyPath: 'id', autoIncrement: true });
+        console.log(`Object store ${COVER_LETTER_STORE} created.`);
+      }
+      // Create resume store if it doesn't exist (handles version upgrade)
+      if (!db.objectStoreNames.contains(RESUME_STORE)) {
+        db.createObjectStore(RESUME_STORE, { keyPath: 'id', autoIncrement: true });
+        console.log(`Object store ${RESUME_STORE} created.`);
+      }
+    };
+
+    request.onsuccess = (event) => {
+      console.log('Database opened successfully.');
+      resolve((event.target as IDBOpenDBRequest).result);
+    };
+
+    request.onerror = (event) => {
+      console.error('IndexedDB error opening database:', (event.target as IDBOpenDBRequest).error);
+      reject('Error opening IndexedDB');
+      dbPromise = null;
+    };
   });
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('getDb timed out / unimplemented.')), TIMEOUT_DURATION);
-  });
+  return dbPromise;
 };
 
 /**
@@ -40,8 +63,22 @@ const getDb = (): Promise<IDBDatabase> => {
  */
 const addDocument = async (storeName: string, file: File): Promise<number> => {
   const db = await getDb();
-  // TODO: Implement document addition logic
-  return -1;
+  const content = await file.text(); // Read file content as text
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    const documentData = { name: file.name, content: content }; 
+    const request = store.add(documentData);
+
+    request.onsuccess = (event) => {
+      console.log(`Document added to ${storeName} with id:`, (event.target as IDBRequest).result);
+      resolve((event.target as IDBRequest).result as number);
+    };
+    request.onerror = (event) => {
+      console.error(`Error adding document to ${storeName}:`, (event.target as IDBRequest).error);
+      reject(`Error adding document to ${storeName}`);
+    };
+  });
 };
 
 /**
@@ -51,8 +88,24 @@ const addDocument = async (storeName: string, file: File): Promise<number> => {
  */
 const getAllDocuments = async (storeName: string): Promise<DocumentRecord[]> => {
     const db = await getDb();
-    // TODO: Implement document retrieval logic
-    return [];
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.getAll(); // Note: This gets the full record including content
+
+      request.onsuccess = (event) => {
+        const records = (event.target as IDBRequest).result as DocumentRecord[];
+        // We only need id and name for the dropdowns usually
+        // const namesAndIds = records.map(record => ({ id: record.id, name: record.name }));
+        // For simplicity now, return full record, but consider optimizing later
+        console.log(`Successfully retrieved documents from ${storeName}.`);
+        resolve(records);
+      };
+      request.onerror = (event) => {
+        console.error(`Error getting documents from ${storeName}:`, (event.target as IDBRequest).error);
+        reject(`Error getting documents from ${storeName}`);
+      };
+    });
 };
 
 /**
@@ -63,8 +116,21 @@ const getAllDocuments = async (storeName: string): Promise<DocumentRecord[]> => 
  */
 const getDocumentContent = async (storeName: string, id: number): Promise<string | null> => {
     const db = await getDb();
-    // TODO: Implement document retrieval logic
-    return null;
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.get(id);
+
+      request.onsuccess = (event) => {
+        const record = (event.target as IDBRequest).result as DocumentRecord | undefined;
+        console.log(`Retrieved record from ${storeName} for id ${id}:`, !!record);
+        resolve(record ? record.content : null);
+      };
+      request.onerror = (event) => {
+        console.error(`Error getting document content from ${storeName} with id ${id}:`, (event.target as IDBRequest).error);
+        reject(`Error getting document content from ${storeName}`);
+      };
+    });
 };
 
 
@@ -120,6 +186,38 @@ export const clearDatabase = async (storeName?: string): Promise<void> => {
   const db = await getDb();
   const storesToClear = storeName ? [storeName] : [COVER_LETTER_STORE, RESUME_STORE]; // Clear specific or all
 
-  // TODO: Implement clearing logic
-  return;
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storesToClear, 'readwrite');
+    let clearedCount = 0;
+
+    storesToClear.forEach(currentStoreName => { // Renamed inner variable
+        const store = transaction.objectStore(currentStoreName); // Use renamed variable
+        const request = store.clear();
+        request.onsuccess = () => {
+            console.log(`Store ${currentStoreName} cleared successfully.`); // Use renamed variable
+            clearedCount++;
+            if (clearedCount === storesToClear.length) {
+                resolve();
+            }
+        };
+        request.onerror = (event) => {
+            console.error(`Error clearing store ${currentStoreName}:`, (event.target as IDBRequest).error); // Use renamed variable
+            // Don't reject immediately, let transaction complete or error out
+        };
+    });
+
+    transaction.oncomplete = () => {
+        console.log('Clear transaction complete.');
+        if (clearedCount === storesToClear.length) {
+            resolve(); // Resolve only if all clears succeeded or completed
+        } else {
+            reject('Failed to clear one or more stores.');
+        }
+    };
+
+    transaction.onerror = (event) => {
+        console.error('Error in clear transaction:', event);
+        reject('Error clearing database stores');
+    };
+  });
 }; 

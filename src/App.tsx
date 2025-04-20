@@ -86,7 +86,7 @@ function App() {
         <>
           {/* Show initial upload only if no letters AND not trying to access generate page */} 
           {/* TODO: Fix this to 0 when we have a way to check if the DB is empty */}
-          {coverLetters.length === -1 && activeView !== 'generate' && activeView !== 'settings' ? ( 
+          {coverLetters.length === 0 && activeView !== 'generate' && activeView !== 'settings' ? ( 
              <UploadSection onFileUpload={handleCoverLetterUpload} title="Upload Cover Letter to Start"/>
           ) : (
             // Render Navbar and content if letters exist OR if viewing Generate/Settings page
