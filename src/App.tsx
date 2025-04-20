@@ -10,6 +10,10 @@ import {
   clearDatabase,
   getAllResumes,
   addResume,
+  deleteResume,
+  deleteCoverLetter,
+  renameResume,
+  renameCoverLetter,
 } from "./utils/indexedDB";
 
 interface Document {
@@ -100,6 +104,34 @@ function App() {
     }
   };
 
+  const handleDeleteDocument = async (id: number, type: 'resume' | 'letter') => {
+    try {
+      if (type === 'resume') {
+        await deleteResume(id);
+        setResumes(prev => prev.filter(r => r.id !== id));
+      } else {
+        await deleteCoverLetter(id);
+        setCoverLetters(prev => prev.filter(l => l.id !== id));
+      }
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+    }
+  };
+
+  const handleRenameDocument = async (id: number, newName: string, type: 'resume' | 'letter') => {
+    try {
+      if (type === 'resume') {
+        await renameResume(id, newName);
+        setResumes(prev => prev.map(r => r.id === id ? { ...r, name: newName } : r));
+      } else {
+        await renameCoverLetter(id, newName);
+        setCoverLetters(prev => prev.map(l => l.id === id ? { ...l, name: newName } : l));
+      }
+    } catch (error) {
+      console.error('Failed to rename document:', error);
+    }
+  };
+
   return (
     <div className="App">
       {/* Loading State */}
@@ -125,6 +157,8 @@ function App() {
                     letters={coverLetters}
                     resumes={resumes}
                     onFileUpload={handleFileUpload}
+                    onDelete={handleDeleteDocument}
+                    onRename={handleRenameDocument}
                   />
                 }
                 

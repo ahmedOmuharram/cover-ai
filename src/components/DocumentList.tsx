@@ -1,4 +1,4 @@
-import React, { useRef, ChangeEvent } from 'react';
+import React, { useRef, ChangeEvent, useState } from 'react';
 import './DocumentList.css';
 
 interface Document {
@@ -10,9 +10,20 @@ interface DocumentListProps {
   resumes: Document[];
   letters: Document[];
   onFileUpload: (file: File, type: 'resume' | 'letter') => void;
+  onDelete: (id: number, type: 'resume' | 'letter') => Promise<void>;
+  onRename: (id: number, newName: string, type: 'resume' | 'letter') => Promise<void>;
 }
 
-const DocumentList: React.FC<DocumentListProps> = ({ resumes, letters, onFileUpload }) => {
+const DocumentList: React.FC<DocumentListProps> = ({ 
+  resumes, 
+  letters, 
+  onFileUpload,
+  onDelete,
+  onRename 
+}) => {
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingType, setEditingType] = useState<'resume' | 'letter' | null>(null);
+  const [newName, setNewName] = useState('');
   const coverLetterInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
 
@@ -26,6 +37,73 @@ const DocumentList: React.FC<DocumentListProps> = ({ resumes, letters, onFileUpl
 
   const handleUploadClick = (inputRef: React.RefObject<HTMLInputElement>) => {
     inputRef.current?.click();
+  };
+
+  const handleRenameClick = (id: number, currentName: string, type: 'resume' | 'letter') => {
+    setEditingId(id);
+    setEditingType(type);
+    setNewName(currentName);
+  };
+
+  const handleRenameSubmit = async (id: number, type: 'resume' | 'letter') => {
+    try {
+      await onRename(id, newName, type);
+      setEditingId(null);
+      setEditingType(null);
+    } catch (error) {
+      console.error('Error renaming document:', error);
+    }
+  };
+
+  const renderDocument = (doc: Document, type: 'resume' | 'letter') => {
+    const isEditing = editingId === doc.id && editingType === type;
+    
+    return (
+      <li key={doc.id} className="document-item">
+        {isEditing ? (
+          <div className="edit-mode">
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              autoFocus
+            />
+            <button 
+              onClick={() => handleRenameSubmit(doc.id, type)}
+              className="action-button save"
+            >
+              ✓
+            </button>
+            <button 
+              onClick={() => setEditingId(null)}
+              className="action-button cancel"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <>
+            <span className="document-name">{doc.name}</span>
+            <div className="document-actions">
+              <button 
+                onClick={() => handleRenameClick(doc.id, doc.name, type)}
+                className="action-button rename"
+                title="Rename"
+              >
+                ✎
+              </button>
+              <button 
+                onClick={() => onDelete(doc.id, type)}
+                className="action-button delete"
+                title="Delete"
+              >
+                ×
+              </button>
+            </div>
+          </>
+        )}
+      </li>
+    );
   };
 
   return (
@@ -48,9 +126,7 @@ const DocumentList: React.FC<DocumentListProps> = ({ resumes, letters, onFileUpl
           <p className="no-letters-message">No resumes uploaded yet.</p>
         ) : (
           <ul>
-            {resumes.map((resume) => (
-              <li key={resume.id}>{resume.name}</li>
-            ))}
+            {resumes.map(resume => renderDocument(resume, 'resume'))}
           </ul>
         )}
         
@@ -79,9 +155,7 @@ const DocumentList: React.FC<DocumentListProps> = ({ resumes, letters, onFileUpl
           <p className="no-letters-message">No cover letters uploaded yet.</p>
         ) : (
           <ul>
-            {letters.map((letter) => (
-              <li key={letter.id}>{letter.name}</li>
-            ))}
+            {letters.map(letter => renderDocument(letter, 'letter'))}
           </ul>
         )}
         

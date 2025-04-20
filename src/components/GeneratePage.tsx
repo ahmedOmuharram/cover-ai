@@ -4,10 +4,8 @@ import {
   getAllCoverLetters,
   getCoverLetterContent,
   getAllResumes,
-  getResumeContent,
-  addResume // Import function to add resumes
+  getResumeContent
 } from '../utils/indexedDB';
-import UploadSection from './UploadSection'; // Reuse upload component
 import './GeneratePage.css'; // Create this file for styles
 
 interface DocumentInfo {
@@ -41,20 +39,6 @@ const GeneratePage: React.FC = () => {
   useEffect(() => {
     loadDocuments();
   }, []);
-
-  const handleResumeUpload = async (file: File) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      await addResume(file);
-      await loadDocuments(); // Reload lists after upload
-    } catch (err) {
-      console.error("Error uploading resume:", err);
-      setError("Failed to upload resume.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleGenerate = async () => {
     if (!selectedCoverLetterId || !selectedResumeId) {
@@ -104,14 +88,6 @@ const GeneratePage: React.FC = () => {
   return (
     <div className="generate-page">
       <h2>Generate Prompt</h2>
-
-      {/* Resume Upload Section */}
-      <div className="resume-upload-section">
-        <UploadSection 
-          title="Upload Resume" 
-          onFileUpload={handleResumeUpload}
-        />
-      </div>
 
       {/* Selections */}
       <div className="selections">
@@ -169,4 +145,4 @@ const GeneratePage: React.FC = () => {
   );
 };
 
-export default GeneratePage; 
+export default GeneratePage;
