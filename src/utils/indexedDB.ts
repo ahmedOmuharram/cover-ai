@@ -332,6 +332,27 @@ export const clearDatabase = async (storeName?: string): Promise<void> => {
   });
 };
 
+/**
+ * Closes the cached database connection, if open.
+ */
+export const closeDb = async (): Promise<void> => {
+  if (!dbPromise) {
+    console.log('closeDb: No active DB promise to close.');
+    return;
+  }
+  try {
+    console.log('closeDb: Attempting to close DB connection...');
+    const db = await dbPromise;
+    db.close();
+    dbPromise = null; // Reset the promise cache
+    console.log('closeDb: DB connection closed and promise reset.');
+  } catch (error) {
+    console.error('closeDb: Error closing database:', error);
+    // Also reset promise even if close failed?
+    dbPromise = null; 
+  }
+};
+
 // Export specific functions for cover letters
 export const deleteCoverLetter = (id: number) => deleteDocument(COVER_LETTER_STORE, id);
 export const renameCoverLetter = (id: number, newName: string) => renameDocument(COVER_LETTER_STORE, id, newName);
