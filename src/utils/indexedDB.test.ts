@@ -101,8 +101,7 @@ const createMockFile = (name: string, content: string = 'file content'): File =>
     webkitRelativePath: '', 
   };
   // Cast to File type for type checking, but understand it's a mock object
-  // @ts-expect-error - Mock object doesn't fully implement File, but is sufficient for tests
-  return mockFile as File;
+  return mockFile as unknown as File;
 };
 
 describe('IndexedDB Utility Functions', () => {
