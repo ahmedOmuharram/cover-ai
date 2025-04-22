@@ -1,9 +1,11 @@
 // src/utils/indexedDB.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 
 // Import *only* the functions we intend to test directly now
 import {
+  addCoverLetter,
+  addResume,
   getAllCoverLetters,
   getCoverLetterContent,
   deleteCoverLetter,
@@ -82,12 +84,34 @@ const seedDatabase = async (data: { store: string; records: Omit<DocumentRecord,
 };
 
 
-describe('IndexedDB Utility Functions (Excluding Add)', () => {
+const createMockFile = (name: string, content: string = 'file content'): File => {
+  // Create a simple object mimicking File properties needed by extractTextFromPDF
+  const mockFile = {
+    name: name,
+    size: content.length,
+    type: 'text/plain', // Or 'application/pdf' might be more realistic if needed
+    lastModified: Date.now(),
+    // Provide an async function that returns an ArrayBuffer
+    arrayBuffer: vi.fn().mockResolvedValue(new TextEncoder().encode(content).buffer),
+    // Add other File/Blob methods as placeholders if needed by other code paths
+    slice: vi.fn(() => new Blob()),
+    stream: vi.fn(() => new ReadableStream()),
+    text: vi.fn().mockResolvedValue(content),
+    // Ensure it adheres to the File interface as much as possible
+    webkitRelativePath: '', 
+  };
+  // Cast to File type for type checking, but understand it's a mock object
+  // @ts-expect-error - Mock object doesn't fully implement File, but is sufficient for tests
+  return mockFile as File;
+};
+
+describe('IndexedDB Utility Functions', () => {
 
   // Sample data to seed
   const coverLetter1: Omit<DocumentRecord, 'id'> = { name: 'CL1.txt', content: 'Content for CL1' };
   const coverLetter2: Omit<DocumentRecord, 'id'> = { name: 'CL2.pdf', content: 'Content for CL2 PDF' };
   const resume1: Omit<DocumentRecord, 'id'> = { name: 'Resume1.pdf', content: 'Content for Resume 1' };
+  const mockExtractedContent = 'Mock PDF text content line 1  line 2'; // <-- Added extra space
 
   beforeEach(async () => {
     // Delete the database entirely first to reset auto-increment counters
@@ -127,6 +151,53 @@ describe('IndexedDB Utility Functions (Excluding Add)', () => {
   afterEach(async () => {
     console.log('Running afterEach to close DB connection...');
     await closeDb();
+  });
+
+  // --- Add Functions Tests ---
+  describe('Add Functions', () => {
+    it('should add a cover letter via addCoverLetter and retrieve it', async () => {
+      const mockFile = createMockFile('TestCL.txt');
+      const id = await addCoverLetter(mockFile);
+      expect(id).toBeGreaterThan(0);
+
+      // Verify using getAll
+      const letters = await getAllCoverLetters();
+      // Note: beforeEach seeds 2 CLs, this adds a 3rd
+      expect(letters).toHaveLength(3);
+      const addedLetter = letters.find(l => l.id === id);
+      expect(addedLetter).toBeDefined();
+      expect(addedLetter).toEqual(expect.objectContaining({
+        id: id,
+        name: 'TestCL.txt',
+        content: mockExtractedContent // Check for content from mock pdfjs
+      }));
+
+      // Verify using getContent
+      const content = await getCoverLetterContent(id);
+      expect(content).toBe(mockExtractedContent);
+    });
+
+    it('should add a resume via addResume and retrieve it', async () => {
+      const mockFile = createMockFile('TestResume.pdf');
+      const id = await addResume(mockFile);
+      expect(id).toBeGreaterThan(0);
+
+      // Verify using getAll
+      const resumes = await getAllResumes();
+      // Note: beforeEach seeds 1 Resume, this adds a 2nd
+      expect(resumes).toHaveLength(2);
+      const addedResume = resumes.find(r => r.id === id);
+      expect(addedResume).toBeDefined();
+      expect(addedResume).toEqual(expect.objectContaining({
+        id: id,
+        name: 'TestResume.pdf',
+        content: mockExtractedContent // Check for content from mock pdfjs
+      }));
+
+      // Verify using getContent
+      const content = await getResumeContent(id);
+      expect(content).toBe(mockExtractedContent);
+    });
   });
 
   // --- Cover Letter Tests (Read, Delete, Rename) ---
