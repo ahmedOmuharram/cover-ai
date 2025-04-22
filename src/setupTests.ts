@@ -7,17 +7,38 @@ import 'fake-indexeddb/auto'; // Automatically replaces global indexedDB
 vi.mock('pdfjs-dist', () => {
   console.log('Mocking pdfjs-dist module');
   // Provide a minimal mock structure to satisfy the import and usage in indexedDB.ts
+
+  const mockTextContent = {
+    items: [{ str: 'Mock PDF text content line 1 ' }, { str: 'line 2' }],
+  };
+  const mockGetTextContent = vi.fn().mockResolvedValue(mockTextContent);
+
+  const mockPage = {
+    getTextContent: mockGetTextContent,
+  };
+  const mockGetPage = vi.fn().mockResolvedValue(mockPage);
+
+  // This is the object the awaited promise MUST resolve to
+  const mockPdfDocument = {
+    numPages: 1, // Ensure this is present
+    getPage: mockGetPage,
+  };
+
+  // This is the proxy object returned by getDocument()
+  // It ONLY needs the 'promise' property for the original code path
+  const mockDocumentProxy = {
+    promise: Promise.resolve(mockPdfDocument),
+  };
+
+  const mockGetDocument = vi.fn().mockImplementation((options) => {
+      console.log('---> MOCKED pdfjsLib.getDocument called with options:', options);
+      // Return ONLY the proxy containing the promise
+      return mockDocumentProxy;
+  });
+
   return {
-    // Mock the property accessed globally in indexedDB.ts
-    GlobalWorkerOptions: {
-        workerSrc: '',
-    },
-    // We don't need a functional getDocument mock here because
-    // extractTextFromPDF (which uses it) is already mocked below.
-    // Add a basic placeholder just in case.
-    getDocument: vi.fn().mockResolvedValue({
-        promise: Promise.resolve({ numPages: 0 }),
-    }),
+    GlobalWorkerOptions: { workerSrc: '' },
+    getDocument: mockGetDocument,
   };
 });
 
