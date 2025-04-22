@@ -1,7 +1,14 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { copyFileSync, mkdirSync, existsSync } from 'fs';
+/// <reference types="vitest" />
+import type { InlineConfig } from 'vitest/node';
+
+// Extend the UserConfig type to include 'test'
+interface VitestUserConfigExport extends UserConfig {
+  test: InlineConfig;
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -36,6 +43,18 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
       },
+      output: {
+        // Ensure consistent asset file names, remove hash if needed
+        entryFileNames: `assets/[name].js`,
+        chunkFileNames: `assets/[name].js`,
+        assetFileNames: `assets/[name].[ext]`
+      }
     },
   },
-}); 
+  // Add Vitest configuration
+  test: {
+    globals: true,
+    environment: 'jsdom', // Use jsdom for browser-like environment needed for IndexedDB/chrome mocks
+    setupFiles: './src/setupTests.ts',
+  },
+} as VitestUserConfigExport); 
