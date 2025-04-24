@@ -1,5 +1,4 @@
 import React, { useRef, ChangeEvent, useState } from 'react';
-import './DocumentList.css';
 
 interface Document {
   id: number;

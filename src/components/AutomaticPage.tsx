@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ToneSetting } from '../App';
+import { ToneSetting } from '../App.js';
 import {
   getAllCoverLetters,
   getCoverLetterContent,
   getAllResumes,
   getResumeContent
-} from '../utils/indexedDB';
+} from '../utils/indexedDB.js';
 import OpenAI from 'openai';
 import { jsPDF } from 'jspdf';
-import './AutomaticPage.css';
 
 interface DocumentInfo {
   id: number;
@@ -67,8 +66,8 @@ const AutomaticPage: React.FC<AutomaticPageProps> = ({ autoDownload }) => {
           getAllCoverLetters(),
           getAllResumes()
         ]);
-        setCoverLetters(clData.map(d => ({ id: d.id, name: d.name })));
-        setResumes(resumeData.map(d => ({ id: d.id, name: d.name })));
+        setCoverLetters(clData.map((d: {id: number, name: string}) => ({ id: d.id, name: d.name })));
+        setResumes(resumeData.map((d: {id: number, name: string}) => ({ id: d.id, name: d.name })));
 
         // Load saved API key
         chrome.storage.local.get(['openaiApiKey'], (result) => {

@@ -1,5 +1,4 @@
 import React, { ChangeEvent } from 'react';
-import './UploadSection.css';
 
 interface UploadSectionProps {
   onFileUpload: (file: File) => void;

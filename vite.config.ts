@@ -1,5 +1,6 @@
 import { defineConfig, type UserConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from "path"; // Import path module
 import { resolve } from 'path';
 import { copyFileSync, mkdirSync, existsSync } from 'fs';
 /// <reference types="vitest" />
@@ -28,15 +29,37 @@ export default defineConfig({
         // Copy background.js
         copyFileSync('public/background.js', 'dist/background.js');
         
-        // Copy images folder (recursive copy not implemented here, 
-        // you may need to enhance this for complex directory structures)
+        // Copy contentScript.js
+        copyFileSync('public/contentScript.js', 'dist/contentScript.js');
+        
+        // Copy pdf.worker.min.mjs
+        copyFileSync('public/pdf.worker.min.mjs', 'dist/pdf.worker.min.mjs');
+        
+        // Copy images folder
         if (!existsSync('dist/images')) {
           mkdirSync('dist/images', { recursive: true });
         }
-        // You would need to copy each image individually here
+        // Example: Copy individual image if needed
+        // if (existsSync('public/images/icon16.png')) {
+        //   copyFileSync('public/images/icon16.png', 'dist/images/icon16.png');
+        // }
+        // Add similar lines for other icons (icon48, icon128)
+        if (existsSync('public/images/icon16.png')) copyFileSync('public/images/icon16.png', 'dist/images/icon16.png');
+        if (existsSync('public/images/icon48.png')) copyFileSync('public/images/icon48.png', 'dist/images/icon48.png');
+        if (existsSync('public/images/icon128.png')) copyFileSync('public/images/icon128.png', 'dist/images/icon128.png');
       }
     }
   ],
+  // Add resolve alias configuration
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  // Add CSS configuration for PostCSS/Tailwind
+  css: {
+    postcss: './postcss.config.cjs',
+  },
   build: {
     outDir: 'dist',
     rollupOptions: {
@@ -50,6 +73,7 @@ export default defineConfig({
         assetFileNames: `assets/[name].[ext]`
       }
     },
+    sourcemap: false, // Consider disabling sourcemaps for production extension builds
   },
   // Add Vitest configuration
   test: {

@@ -1,13 +1,12 @@
 // src/components/GeneratePage.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { ToneSetting } from '../App'; // Import ToneSetting type from App
+import { ToneSetting } from '../App.js'; // Add .js extension
 import {
   getAllCoverLetters,
   getCoverLetterContent,
   getAllResumes,
   getResumeContent
-} from '../utils/indexedDB';
-import './GeneratePage.css'; // Create this file for styles
+} from '../utils/indexedDB.js'; // Add .js extension
 
 interface DocumentInfo {
   id: number;
@@ -66,8 +65,8 @@ const GeneratePage: React.FC = () => {
           getAllCoverLetters(),
           getAllResumes()
         ]);
-        setCoverLetters(clData.map(d => ({ id: d.id, name: d.name })));
-        setResumes(resumeData.map(r => ({ id: r.id, name: r.name })));
+        setCoverLetters(clData.map((d: {id: number, name: string}) => ({ id: d.id, name: d.name })));
+        setResumes(resumeData.map((r: {id: number, name: string}) => ({ id: r.id, name: r.name })));
 
         // Load saved selections from session storage
         chrome.storage.session.get(['selectedCoverLetterId', 'selectedResumeId', 'jobDescriptionText'], (result) => {
