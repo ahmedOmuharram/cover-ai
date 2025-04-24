@@ -3,8 +3,7 @@ import "./App.css";
 import Navbar, { ActiveView } from "./components/Navbar";
 import UploadSection from "./components/UploadSection";
 import DocumentList from "./components/DocumentList";
-import GeneratePage from "./components/GeneratePage";
-import AutomaticPage from "./components/AutomaticPage";
+import GenerationView from "./components/GenerationView";
 import {
   addCoverLetter,
   getAllCoverLetters,
@@ -15,7 +14,11 @@ import {
   deleteCoverLetter,
   renameResume,
   renameCoverLetter,
-} from "./utils/indexedDB";
+} from "./utils/indexedDB.js";
+import { Button } from "./components/ui/button.js";
+import { Label } from "./components/ui/label";
+import { Checkbox } from "./components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Document {
   id: number;
@@ -42,8 +45,8 @@ function App() {
         getAllCoverLetters(),
         getAllResumes()
       ]);
-      setCoverLetters(letters.map(l => ({ id: l.id, name: l.name }))); // Map to simple Document for state
-      setResumes(resumes.map(r => ({ id: r.id, name: r.name }))); // Add this line to update resumes state
+      setCoverLetters(letters.map((l: { id: number; name: string; }) => ({ id: l.id, name: l.name })));
+      setResumes(resumes.map((r: { id: number; name: string; }) => ({ id: r.id, name: r.name })));
 
       // Load saved tone and settings
       chrome.storage.local.get(['tone', 'autoCopy', 'autoDownload'], (result) => {
@@ -169,196 +172,151 @@ function App() {
   };
 
   return (
-    <div className="App">
+    <div className="App flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground rounded-lg shadow-md">
       {/* Loading State */}
-      {isLoading && <div className="loading-indicator">Loading...</div>}
+      {isLoading && <div className="loading-indicator flex-grow flex items-center justify-center">Loading...</div>}
 
       {/* Content Area - Render based on loading and letters state */}
       {!isLoading && (
         <>
-          {/* Show initial upload only if no letters AND not trying to access generate page */} 
-          {/* TODO: Fix this to 0 when we have a way to check if the DB is empty */}
-          {coverLetters.length === 0 && activeView !== 'generate' && activeView !== 'settings' ? ( 
-             <UploadSection onFileUpload={handleCoverLetterUpload} title="Upload Cover Letter to Start"/>
+          {/* Show initial upload only if no documents AND not trying to access generate/settings page */}
+          {/* Check both resumes and letters length */} 
+          {(coverLetters.length === 0 && resumes.length === 0) && activeView !== 'generate' && activeView !== 'settings' ? (
+             <UploadSection 
+               onFileUpload={handleCoverLetterUpload} // Or a combined handler if needed initially?
+               title="Upload Document to Start"
+               fullscreen={true} // Enable fullscreen mode
+             />
           ) : (
-            // Render Navbar and content if letters exist OR if viewing Generate/Settings page
+            // Render Navbar and content if documents exist OR if viewing Generate/Settings page
             <>
               <Navbar activeView={activeView} onNavClick={setActiveView} />
-              
-              {/* Wrap conditional content in a div with content-area class */}
-              <div className="content-area">
-                {/* Conditionally render content based on activeView */} 
-                
-                {activeView === 'automatic' && <AutomaticPage autoDownload={autoDownload} />}
-                
-                {activeView === 'view' && (coverLetters.length > 0 || resumes.length > 0) && 
-                  <DocumentList 
+
+              {/* Content area with padding and scrolling */}
+              <div className="content-area flex-grow overflow-y-auto p-4"> 
+                {/* Conditionally render content based on activeView */}
+
+                {activeView === 'view' && (coverLetters.length > 0 || resumes.length > 0) &&
+                  <DocumentList
                     letters={coverLetters}
                     resumes={resumes}
-                    onFileUpload={handleFileUpload}
+                    onFileUpload={handleFileUpload} 
                     onDelete={handleDeleteDocument}
                     onRename={handleRenameDocument}
                   />
                 }
-                
-                {activeView === 'upload' && 
-                  // This section now ONLY uploads cover letters
-                  <UploadSection 
+
+                {activeView === 'upload' &&
+                  // This section now ONLY uploads cover letters - Consider adding resume upload here too?
+                  <UploadSection
                     title="Upload Cover Letter" 
-                    onFileUpload={(file) => handleFileUpload(file, 'letter')} 
+                    onFileUpload={(file: File) => handleFileUpload(file, 'letter')}
+                    // fullscreen is implicitly false here (default)
                   />
                 }
 
-                {/* Add Generate Page */}
-                {activeView === 'generate' && <GeneratePage />} 
+                {/* Combined Generation View */}
+                {activeView === 'generate' && 
+                  <GenerationView 
+                    autoDownload={autoDownload} // Pass down autoDownload prop
+                  />
+                }
 
-                {activeView === 'settings' && 
-                  <div className="settings-page" style={{padding: '20px'}}> 
-                    <h2>Settings</h2>
-                    
+                {/* Settings Page - Apply Tailwind classes */}
+                {activeView === 'settings' &&
+                  <div className="settings-page p-5 space-y-6"> 
+                    <h2 className="text-2xl font-semibold tracking-tight">Settings</h2>
+
                     {/* Tone Selection Setting */}
-                    <div className="setting-item" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      marginBottom: '15px'
-                    }}>
-                      <label htmlFor="tone-select" style={{
-                        marginRight: '10px',
-                        fontWeight: 'bold',
-                        flexShrink: 0
-                      }}>
-                        Generation Tone:
-                      </label>
-                      <select 
-                        id="tone-select"
-                        value={tone} 
-                        onChange={(e) => handleToneChange(e.target.value as ToneSetting)}
-                        style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', minWidth: '150px' }}
+                    <div className="flex items-center space-x-4">
+                      <Label htmlFor="tone-select" className="w-32 text-right flex-shrink-0"> 
+                        Generation Tone
+                      </Label>
+                      <Select 
+                        value={tone}
+                        onValueChange={(value: ToneSetting) => handleToneChange(value)}
                       >
-                        <option value="professional">Professional</option>
-                        <option value="friendly">Friendly</option>
-                        <option value="casual">Casual</option>
-                      </select>
+                        <SelectTrigger id="tone-select" className="w-[180px]">
+                          <SelectValue placeholder="Select tone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="professional">Professional</SelectItem>
+                          <SelectItem value="friendly">Friendly</SelectItem>
+                          <SelectItem value="casual">Casual</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     
                     {/* Auto-copy Setting */}
-                    <div className="setting-item" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      marginBottom: '15px'
-                    }}>
-                      <label htmlFor="auto-copy-checkbox" style={{
-                        marginRight: '10px',
-                        fontWeight: 'bold',
-                        flexShrink: 0
-                      }}>
-                        Auto-copy:
-                      </label>
-                      <input
-                        id="auto-copy-checkbox"
-                        type="checkbox"
+                    <div className="flex items-center space-x-3">
+                      <Checkbox 
+                        id="auto-copy-checkbox" 
                         checked={autoCopy}
-                        onChange={(e) => {
-                          setAutoCopy(e.target.checked);
-                          chrome.storage.local.set({ autoCopy: e.target.checked }, () => {
-                            console.log('Auto-copy setting saved:', e.target.checked);
+                        onCheckedChange={(checked) => {
+                          const isChecked = !!checked; // Convert CheckedState to boolean
+                          setAutoCopy(isChecked);
+                          chrome.storage.local.set({ autoCopy: isChecked }, () => {
+                            console.log('Auto-copy setting saved:', isChecked);
                           });
                         }}
                       />
+                      <Label htmlFor="auto-copy-checkbox" className="font-normal"> 
+                        Automatically copy generated text to clipboard
+                      </Label>
                     </div>
 
                     {/* Auto-download Setting */}
-                    <div className="setting-item" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      marginBottom: '15px'
-                    }}>
-                      <label htmlFor="auto-download-checkbox" style={{
-                        marginRight: '10px',
-                        fontWeight: 'bold',
-                        flexShrink: 0
-                      }}>
-                        Auto-download PDF:
-                      </label>
-                      <input
-                        id="auto-download-checkbox"
-                        type="checkbox"
+                    <div className="flex items-center space-x-3">
+                       <Checkbox 
+                        id="auto-download-checkbox" 
                         checked={autoDownload}
-                        onChange={(e) => {
-                          setAutoDownload(e.target.checked);
-                          chrome.storage.local.set({ autoDownload: e.target.checked }, () => {
-                            console.log('Auto-download setting saved:', e.target.checked);
+                        onCheckedChange={(checked) => {
+                          const isChecked = !!checked; // Convert CheckedState to boolean
+                          setAutoDownload(isChecked);
+                          chrome.storage.local.set({ autoDownload: isChecked }, () => {
+                            console.log('Auto-download setting saved:', isChecked);
                           });
                         }}
                       />
+                      <Label htmlFor="auto-download-checkbox" className="font-normal">
+                        Automatically download generated cover letter as PDF
+                      </Label>
                     </div>
                     
-                    {/* Clear Data Button Setting */}
-                    <div className="setting-item" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      marginBottom: '15px'
-                     }}>
-                      <label style={{
-                        marginRight: '10px',
-                        fontWeight: 'bold',
-                         flexShrink: 0
-                      }}>
-                        Manage Data:
-                      </label>
-                      <button 
-                        onClick={handleClearDatabase} 
-                        style={{
-                          padding: '8px 15px',
-                          fontSize: '0.9em',
-                          backgroundColor: '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Clear All Data (Letters & Resumes)
-                      </button>
-                    </div>
+                    {/* Divider (Optional but adds visual separation) */}
+                    <div className="border-t border-border pt-6 space-y-6"> 
+                      {/* Clear Data Button Setting - Align items */}
+                      <div className="flex items-center justify-between"> {/* Use justify-between */} 
+                        <Label className="w-32 flex-shrink-0">Manage Data</Label> {/* Remove text-right */} 
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleClearDatabase}
+                        >
+                          Clear All Data
+                        </Button>
+                      </div>
 
-                    {/* Clear API Key Button Setting */}
-                    <div className="setting-item" style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      marginBottom: '15px'
-                     }}>
-                      <label style={{
-                        marginRight: '10px',
-                        fontWeight: 'bold',
-                         flexShrink: 0
-                      }}>
-                        API Key:
-                      </label>
-                      <button 
-                        onClick={() => {
-                          chrome.storage.local.remove(['openaiApiKey'], () => {
-                            if (chrome.runtime.lastError) {
-                              console.error('Error clearing API key:', chrome.runtime.lastError);
-                            } else {
-                              console.log('API key cleared successfully');
-                            }
-                          });
-                        }}
-                        style={{
-                          padding: '8px 15px',
-                          fontSize: '0.9em',
-                          backgroundColor: '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Clear API Key
-                      </button>
+                      {/* Clear API Key Button Setting - Align items */}
+                      <div className="flex items-center justify-between"> {/* Use justify-between */} 
+                        <Label className="w-32 flex-shrink-0">API Key</Label> {/* Remove text-right */} 
+                        <Button
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            chrome.storage.local.remove(['openaiApiKey'], () => {
+                              if (chrome.runtime.lastError) {
+                                console.error('Error clearing API key:', chrome.runtime.lastError);
+                              } else {
+                                console.log('API key cleared successfully');
+                              }
+                            });
+                          }}
+                        >
+                          Clear Saved API Key
+                        </Button>
+                      </div>
                     </div>
-
                   </div>
                 }
               </div>

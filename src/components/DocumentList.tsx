@@ -1,5 +1,10 @@
 import React, { useRef, ChangeEvent, useState } from 'react';
-import './DocumentList.css';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils"; 
+import { Pencil, Trash2, Check, X, PlusCircle, FileText, FileArchive } from 'lucide-react';
 
 interface Document {
   id: number;
@@ -46,8 +51,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
   };
 
   const handleRenameSubmit = async (id: number, type: 'resume' | 'letter') => {
+    if (!newName.trim()) return; // Prevent empty names
     try {
-      await onRename(id, newName, type);
+      await onRename(id, newName.trim(), type);
       setEditingId(null);
       setEditingType(null);
     } catch (error) {
@@ -55,116 +61,147 @@ const DocumentList: React.FC<DocumentListProps> = ({
     }
   };
 
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingType(null);
+    setNewName('');
+  }
+
+  // Render function for a single document item
   const renderDocument = (doc: Document, type: 'resume' | 'letter') => {
     const isEditing = editingId === doc.id && editingType === type;
-    
+    const Icon = type === 'letter' ? FileText : FileArchive; // Choose icon based on type
+
     return (
-      <li key={doc.id} className="document-item">
-        {isEditing ? (
-          <div className="edit-mode">
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              autoFocus
-            />
-            <button 
-              onClick={() => handleRenameSubmit(doc.id, type)}
-              className="action-button save"
-            >
-              ✓
-            </button>
-            <button 
-              onClick={() => setEditingId(null)}
-              className="action-button cancel"
-            >
-              ✕
-            </button>
-          </div>
-        ) : (
-          <>
-            <span className="document-name">{doc.name}</span>
-            <div className="document-actions">
-              <button 
-                onClick={() => handleRenameClick(doc.id, doc.name, type)}
-                className="action-button rename"
-                title="Rename"
-              >
-                ✎
-              </button>
-              <button 
-                onClick={() => onDelete(doc.id, type)}
-                className="action-button delete"
-                title="Delete"
-              >
-                ×
-              </button>
+      <div 
+        key={doc.id} 
+        className="flex items-center justify-between space-x-4 p-2 rounded-md hover:bg-accent/50"
+      >
+        <div className="flex items-center space-x-3 flex-grow min-w-0"> {/* Allow text to truncate */} 
+          <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          {isEditing ? (
+            <div className="flex items-center space-x-2 flex-grow min-w-0">
+              <Input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleRenameSubmit(doc.id, type)}
+                className="h-8 flex-grow min-w-0" // Allow input to shrink
+                autoFocus
+              />
+              <TooltipProvider delayDuration={100}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-green-600 hover:text-green-700"
+                      onClick={() => handleRenameSubmit(doc.id, type)}
+                      disabled={!newName.trim()}
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Save</p></TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={handleCancelEdit}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Cancel</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
-          </>
+          ) : (
+            <span className="text-sm font-medium truncate flex-grow min-w-0">{doc.name}</span>
+          )}
+        </div>
+        {!isEditing && (
+          <div className="flex items-center space-x-1 flex-shrink-0">
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleRenameClick(doc.id, doc.name, type)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Rename</p></TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => onDelete(doc.id, type)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Delete</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         )}
-      </li>
+      </div>
     );
   };
 
+  // Helper to render a section (Letters or Resumes)
+  const renderSection = (title: string, documents: Document[], type: 'resume' | 'letter', inputRef: React.RefObject<HTMLInputElement>) => (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {/* Hidden file input */}
+        <input 
+          type="file" 
+          ref={inputRef} 
+          onChange={(e) => handleFileChange(e, type)} 
+          style={{ display: 'none' }} 
+          accept=".pdf,.doc,.docx,.txt"
+        />
+        
+        {documents.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic px-2 py-4 text-center">No {type === 'letter' ? 'letters' : 'resumes'} uploaded yet.</p>
+        ) : (
+          <div className="space-y-1">
+            {documents.map(doc => renderDocument(doc, type))}
+          </div>
+        )}
+      </CardContent>
+      <CardFooter>
+        <Button 
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => handleUploadClick(inputRef)}
+        >
+          <PlusCircle className="mr-2 h-4 w-4" /> 
+          Upload New {type === 'letter' ? 'Cover Letter' : 'Resume'}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+
   return (
-    <div className="document-list">
-      
-      {/* Cover Letter Section */}
-      <div className="list-section">
-        <div className="list-header">
-          <h2>Uploaded Cover Letters</h2>
-        </div>
-
-        <input 
-          type="file" 
-          ref={coverLetterInputRef} 
-          onChange={(e) => handleFileChange(e, 'letter')} 
-          style={{ display: 'none' }} 
-          accept=".pdf,.doc,.docx,.txt"
-        />
-        
-        {letters.length === 0 ? (
-          <p className="no-letters-message">No cover letters uploaded yet.</p>
-        ) : (
-          <ul>
-            {letters.map(letter => renderDocument(letter, 'letter'))}
-          </ul>
-        )}
-        
-        <div className="list-footer">
-          <button onClick={() => handleUploadClick(coverLetterInputRef)} className="upload-new-button">
-            + Upload New Cover Letter
-          </button>
-        </div>
-      </div>
-      {/* Resume Section */}
-      <div className="list-section">
-        <div className="list-header">
-          <h2>Uploaded Resumes</h2>
-        </div>
-
-        <input 
-          type="file" 
-          ref={resumeInputRef} 
-          onChange={(e) => handleFileChange(e, 'resume')} 
-          style={{ display: 'none' }} 
-          accept=".pdf,.doc,.docx,.txt"
-        />
-        
-        {resumes.length === 0 ? (
-          <p className="no-letters-message">No resumes uploaded yet.</p>
-        ) : (
-          <ul>
-            {resumes.map(resume => renderDocument(resume, 'resume'))}
-          </ul>
-        )}
-        
-        <div className="list-footer">
-          <button onClick={() => handleUploadClick(resumeInputRef)} className="upload-new-button">
-            + Upload New Resume
-          </button>
-        </div>
-      </div>
+    // Use grid for overall layout
+    <div className="document-list grid grid-cols-1 md:grid-cols-2 gap-6">
+      {renderSection("Cover Letters", letters, 'letter', coverLetterInputRef)}
+      {renderSection("Resumes", resumes, 'resume', resumeInputRef)}
     </div>
   );
 };

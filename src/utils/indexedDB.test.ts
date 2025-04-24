@@ -16,7 +16,7 @@ import {
   renameResume,
   clearDatabase,
   closeDb,
-} from './indexedDB';
+} from './indexedDB.js';
 
 // Define constants locally
 const DB_NAME = 'CoverLetterDB';
@@ -104,6 +104,13 @@ const createMockFile = (name: string, content: string = 'file content'): File =>
   return mockFile as unknown as File;
 };
 
+// Define a type for the documents returned by getAll*
+interface StoredDocument {
+  id: number;
+  name: string;
+  content?: string; // Content might not always be present depending on the function
+}
+
 describe('IndexedDB Utility Functions', () => {
 
   // Sample data to seed
@@ -163,7 +170,7 @@ describe('IndexedDB Utility Functions', () => {
       const letters = await getAllCoverLetters();
       // Note: beforeEach seeds 2 CLs, this adds a 3rd
       expect(letters).toHaveLength(3);
-      const addedLetter = letters.find(l => l.id === id);
+      const addedLetter = letters.find((l: StoredDocument) => l.id === id);
       expect(addedLetter).toBeDefined();
       expect(addedLetter).toEqual(expect.objectContaining({
         id: id,
@@ -185,7 +192,7 @@ describe('IndexedDB Utility Functions', () => {
       const resumes = await getAllResumes();
       // Note: beforeEach seeds 1 Resume, this adds a 2nd
       expect(resumes).toHaveLength(2);
-      const addedResume = resumes.find(r => r.id === id);
+      const addedResume = resumes.find((r: StoredDocument) => r.id === id);
       expect(addedResume).toBeDefined();
       expect(addedResume).toEqual(expect.objectContaining({
         id: id,
@@ -213,12 +220,12 @@ describe('IndexedDB Utility Functions', () => {
 
      it('should retrieve specific cover letter content', async () => {
        const letters = await getAllCoverLetters();
-       const cl1 = letters.find(l => l.name === coverLetter1.name);
+       const cl1 = letters.find((l: StoredDocument) => l.name === coverLetter1.name);
        expect(cl1).toBeDefined();
        const content = await getCoverLetterContent(cl1!.id);
        expect(content).toBe(coverLetter1.content);
 
-       const cl2 = letters.find(l => l.name === coverLetter2.name);
+       const cl2 = letters.find((l: StoredDocument) => l.name === coverLetter2.name);
        expect(cl2).toBeDefined();
        const content2 = await getCoverLetterContent(cl2!.id);
        expect(content2).toBe(coverLetter2.content);
@@ -231,14 +238,14 @@ describe('IndexedDB Utility Functions', () => {
 
     it('should delete a cover letter', async () => {
        let letters = await getAllCoverLetters();
-       const cl1 = letters.find(l => l.name === coverLetter1.name);
+       const cl1 = letters.find((l: StoredDocument) => l.name === coverLetter1.name);
        expect(cl1).toBeDefined();
 
        await deleteCoverLetter(cl1!.id); // Delete CL1 by its actual ID
 
        letters = await getAllCoverLetters();
        expect(letters).toHaveLength(1);
-       expect(letters.find(l => l.id === cl1!.id)).toBeUndefined(); // Verify cl1 is gone
+       expect(letters.find((l: StoredDocument) => l.id === cl1!.id)).toBeUndefined(); // Verify cl1 is gone
        expect(letters[0]).toEqual(expect.objectContaining(coverLetter2)); // Check remaining item
      });
 
@@ -252,14 +259,14 @@ describe('IndexedDB Utility Functions', () => {
     it('should rename a cover letter', async () => {
       const newName = 'RenamedCL1.txt';
       let letters = await getAllCoverLetters();
-      const cl1 = letters.find(l => l.name === coverLetter1.name);
+      const cl1 = letters.find((l: StoredDocument) => l.name === coverLetter1.name);
       expect(cl1).toBeDefined();
 
       await renameCoverLetter(cl1!.id, newName); // Rename CL1 by its actual ID
 
       letters = await getAllCoverLetters();
       expect(letters).toHaveLength(2);
-      const renamedLetter = letters.find(l => l.id === cl1!.id);
+      const renamedLetter = letters.find((l: StoredDocument) => l.id === cl1!.id);
       expect(renamedLetter).toBeDefined();
       expect(renamedLetter?.name).toBe(newName);
       expect(renamedLetter?.content).toBe(coverLetter1.content); // Content should remain
@@ -268,7 +275,7 @@ describe('IndexedDB Utility Functions', () => {
     it('should reject renaming a non-existent cover letter', async () => {
        // Find a valid ID first to ensure the rejection is for the *correct* reason
        const letters = await getAllCoverLetters();
-       const maxId = Math.max(...letters.map(l => l.id), 0);
+       const maxId = Math.max(...letters.map((l: StoredDocument) => l.id), 0);
        const nonExistentId = maxId + 100; // Get a guaranteed non-existent ID
        await expect(renameCoverLetter(nonExistentId, 'NewName.txt')).rejects.toMatch(/not found/i);
     });
@@ -285,7 +292,7 @@ describe('IndexedDB Utility Functions', () => {
 
      it('should retrieve specific resume content', async () => {
        const resumes = await getAllResumes();
-       const r1 = resumes.find(r => r.name === resume1.name);
+       const r1 = resumes.find((r: StoredDocument) => r.name === resume1.name);
        expect(r1).toBeDefined();
        const content = await getResumeContent(r1!.id); // Use actual ID
        expect(content).toBe(resume1.content);
@@ -293,7 +300,7 @@ describe('IndexedDB Utility Functions', () => {
 
     it('should delete a resume', async () => {
        let resumes = await getAllResumes();
-       const r1 = resumes.find(r => r.name === resume1.name);
+       const r1 = resumes.find((r: StoredDocument) => r.name === resume1.name);
        expect(r1).toBeDefined();
 
        await deleteResume(r1!.id); // Delete Resume1 by its actual ID
@@ -305,7 +312,7 @@ describe('IndexedDB Utility Functions', () => {
     it('should rename a resume', async () => {
        const newName = 'NewResume.pdf';
        let resumes = await getAllResumes();
-       const r1 = resumes.find(r => r.name === resume1.name);
+       const r1 = resumes.find((r: StoredDocument) => r.name === resume1.name);
        expect(r1).toBeDefined();
 
        await renameResume(r1!.id, newName); // Rename Resume1 by its actual ID
