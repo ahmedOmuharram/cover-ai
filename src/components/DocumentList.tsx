@@ -108,35 +108,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
 
   return (
     <div className="document-list">
-      {/* Resume Section */}
-      <div className="list-section">
-        <div className="list-header">
-          <h2>Uploaded Resumes</h2>
-        </div>
-
-        <input 
-          type="file" 
-          ref={resumeInputRef} 
-          onChange={(e) => handleFileChange(e, 'resume')} 
-          style={{ display: 'none' }} 
-          accept=".pdf,.doc,.docx,.txt"
-        />
-        
-        {resumes.length === 0 ? (
-          <p className="no-letters-message">No resumes uploaded yet.</p>
-        ) : (
-          <ul>
-            {resumes.map(resume => renderDocument(resume, 'resume'))}
-          </ul>
-        )}
-        
-        <div className="list-footer">
-          <button onClick={() => handleUploadClick(resumeInputRef)} className="upload-new-button">
-            + Upload New Resume
-          </button>
-        </div>
-      </div>
-
+      
       {/* Cover Letter Section */}
       <div className="list-section">
         <div className="list-header">
@@ -162,6 +134,34 @@ const DocumentList: React.FC<DocumentListProps> = ({
         <div className="list-footer">
           <button onClick={() => handleUploadClick(coverLetterInputRef)} className="upload-new-button">
             + Upload New Cover Letter
+          </button>
+        </div>
+      </div>
+      {/* Resume Section */}
+      <div className="list-section">
+        <div className="list-header">
+          <h2>Uploaded Resumes</h2>
+        </div>
+
+        <input 
+          type="file" 
+          ref={resumeInputRef} 
+          onChange={(e) => handleFileChange(e, 'resume')} 
+          style={{ display: 'none' }} 
+          accept=".pdf,.doc,.docx,.txt"
+        />
+        
+        {resumes.length === 0 ? (
+          <p className="no-letters-message">No resumes uploaded yet.</p>
+        ) : (
+          <ul>
+            {resumes.map(resume => renderDocument(resume, 'resume'))}
+          </ul>
+        )}
+        
+        <div className="list-footer">
+          <button onClick={() => handleUploadClick(resumeInputRef)} className="upload-new-button">
+            + Upload New Resume
           </button>
         </div>
       </div>
