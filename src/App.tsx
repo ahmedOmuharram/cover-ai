@@ -30,6 +30,7 @@ function App() {
   const [activeView, setActiveView] = useState<ActiveView>("generate"); // Default to 'generate' letters
   const [isLoading, setIsLoading] = useState(true); // Track initial loading
   const [tone, setTone] = useState<ToneSetting>('professional'); // Add state for tone
+  const [autoCopy, setAutoCopy] = useState<boolean>(false); // Add state for auto-copy setting
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -43,7 +44,7 @@ function App() {
       setResumes(resumes.map(r => ({ id: r.id, name: r.name }))); // Add this line to update resumes state
 
       // Load saved tone
-      chrome.storage.local.get(['tone'], (result) => {
+      chrome.storage.local.get(['tone', 'autoCopy'], (result) => {
         if (result.tone) {
            // Validate loaded tone against defined types
            const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
@@ -60,9 +61,13 @@ function App() {
            setTone('professional'); // Default if not found
            chrome.storage.local.set({ tone: 'professional' }); // Save default
         }
+        
+        // Load auto-copy setting
+        setAutoCopy(!!result.autoCopy);
+        console.log('Loaded auto-copy setting:', !!result.autoCopy);
       });
     } catch (error) {
-      console.error('Failed to load documents:', error);
+      console.error('Failed to load initial data:', error);
       setCoverLetters([]); // Ensure empty state on error
       setResumes([]); // Also reset resumes on error
     } finally {
@@ -225,6 +230,32 @@ function App() {
                         <option value="friendly">Friendly</option>
                         <option value="casual">Casual</option>
                       </select>
+                    </div>
+                    
+                    {/* Auto-copy Setting */}
+                    <div className="setting-item" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      marginBottom: '15px'
+                    }}>
+                      <label htmlFor="auto-copy-checkbox" style={{
+                        marginRight: '10px',
+                        fontWeight: 'bold',
+                        flexShrink: 0
+                      }}>
+                        Auto-copy:
+                      </label>
+                      <input
+                        id="auto-copy-checkbox"
+                        type="checkbox"
+                        checked={autoCopy}
+                        onChange={(e) => {
+                          setAutoCopy(e.target.checked);
+                          chrome.storage.local.set({ autoCopy: e.target.checked }, () => {
+                            console.log('Auto-copy setting saved:', e.target.checked);
+                          });
+                        }}
+                      />
                     </div>
                     
                     {/* Clear Data Button Setting */}

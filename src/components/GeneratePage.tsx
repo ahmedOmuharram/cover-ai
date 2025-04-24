@@ -1,5 +1,5 @@
 // src/components/GeneratePage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ToneSetting } from '../App'; // Import ToneSetting type from App
 import {
   getAllCoverLetters,
@@ -24,6 +24,38 @@ const GeneratePage: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [tone, setTone] = useState<ToneSetting>('professional'); // Add state for tone
   const [jobDescriptionText, setJobDescriptionText] = useState<string>(''); // State for received job description
+  const [autoCopy, setAutoCopy] = useState<boolean>(false); // State for auto-copy setting
+  const [showToast, setShowToast] = useState<boolean>(false); // State for toast notification
+  const [toastMessage, setToastMessage] = useState<string>(''); // State for toast message
+
+  // Toast timeout ref to clear on unmount
+  const toastTimeoutRef = useRef<number | null>(null);
+
+  // Function to show toast notification
+  const showToastNotification = (message: string = 'Copied to clipboard') => {
+    // Clear any existing timeout
+    if (toastTimeoutRef.current) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    
+    // Set toast message and show it
+    setToastMessage(message);
+    setShowToast(true);
+    
+    // Hide toast after 3 seconds
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setShowToast(false);
+    }, 3000) as unknown as number;
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        window.clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Effect to load initial data (documents, tone, and persisted state)
   useEffect(() => {
@@ -35,23 +67,10 @@ const GeneratePage: React.FC = () => {
           getAllResumes()
         ]);
         setCoverLetters(clData.map(d => ({ id: d.id, name: d.name })));
-        setResumes(resumeData.map(d => ({ id: d.id, name: d.name })));
+        setResumes(resumeData.map(r => ({ id: r.id, name: r.name })));
 
-        // Load saved tone and selections from session storage
-        chrome.storage.session.get(['tone', 'selectedCoverLetterId', 'selectedResumeId', 'jobDescriptionText'], (result) => {
-          // Load Tone
-          if (result.tone) {
-            const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
-            if (validTones.includes(result.tone)) {
-              setTone(result.tone as ToneSetting);
-              console.log('GeneratePage loaded tone:', result.tone);
-            } else {
-              setTone('professional'); // Default if invalid
-            }
-          } else {
-            setTone('professional'); // Default if not found
-          }
-
+        // Load saved selections from session storage
+        chrome.storage.session.get(['selectedCoverLetterId', 'selectedResumeId', 'jobDescriptionText'], (result) => {
           // Load Selections and Job Description Text
           if (result.selectedCoverLetterId) {
             setSelectedCoverLetterId(result.selectedCoverLetterId);
@@ -66,6 +85,26 @@ const GeneratePage: React.FC = () => {
             console.log('GeneratePage loaded jobDescriptionText:', result.jobDescriptionText);
           }
         });
+        
+        // Load tone from local storage
+        chrome.storage.local.get(['tone'], (result) => {
+          if (result.tone) {
+            const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
+            if (validTones.includes(result.tone)) {
+              setTone(result.tone as ToneSetting);
+              console.log('GeneratePage loaded tone:', result.tone);
+            } else {
+              setTone('professional'); // Default if invalid
+            }
+          } else {
+            setTone('professional'); // Default if not found
+          }
+        });
+        
+        // Load auto-copy setting from local storage (shared with Settings page)
+        chrome.storage.local.get(['autoCopy'], (result) => {
+          setAutoCopy(!!result.autoCopy);
+        });
       } catch (err) {
         console.error("Error loading initial data:", err);
         setError("Failed to load initial data.");
@@ -77,7 +116,7 @@ const GeneratePage: React.FC = () => {
     const messageListener = (message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
         console.log("Message received in GeneratePage:", message); // Log received messages
         if (message.type === 'JOB_DESCRIPTION_TEXT' && message.payload?.text) {
-              console.log("Setting job description text:", message.payload.text.substring(0, 50) + "...");
+            console.log("Setting job description text:", message.payload.text.substring(0, 50) + "...");
             
             // If this is from highlighting, it always overwrites (user selection takes priority)
             // If it's from scraping, only overwrite if there isn't already text (preserves user edits)
@@ -101,8 +140,8 @@ const GeneratePage: React.FC = () => {
 
     // Cleanup listener on component unmount
     return () => {
-        chrome.runtime.onMessage.removeListener(messageListener);
-        console.log("GeneratePage message listener removed.");
+      chrome.runtime.onMessage.removeListener(messageListener);
+      console.log("GeneratePage message listener removed.");
     };
     // --- End Message Listener ---
 
@@ -164,7 +203,19 @@ const GeneratePage: React.FC = () => {
         TODO: Add more instructions here.
       `;
       // --- End Prompt Formatting ---
-      setPromptOutput(generatedPrompt.trim());
+      const trimmedPrompt = generatedPrompt.trim();
+      setPromptOutput(trimmedPrompt);
+      
+      // Auto-copy to clipboard if enabled
+      if (autoCopy) {
+        try {
+          await navigator.clipboard.writeText(trimmedPrompt);
+          console.log('Prompt automatically copied to clipboard');
+          showToastNotification('Automatically copied to clipboard');
+        } catch (copyError) {
+          console.error('Failed to auto-copy prompt:', copyError);
+        }
+      }
 
     } catch (err) {
       console.error("Error generating prompt:", err);
@@ -172,6 +223,29 @@ const GeneratePage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to copy text to clipboard
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        console.log('Prompt copied to clipboard');
+        // Show temporary feedback on button
+        const button = document.getElementById('copy-button');
+        if (button) {
+          const originalText = button.innerHTML;
+          button.innerHTML = '✓';
+          button.style.backgroundColor = '#4CAF50';
+          setTimeout(() => {
+            button.innerHTML = originalText;
+            button.style.backgroundColor = '';
+          }, 1500);
+        }
+        
+        // Show toast notification
+        showToastNotification('Copied to clipboard');
+      })
+      .catch(err => console.error('Failed to copy prompt:', err));
   };
 
   return (
@@ -228,6 +302,7 @@ const GeneratePage: React.FC = () => {
         className="generate-button" 
         onClick={handleGenerate}
         disabled={isLoading || !selectedCoverLetterId || !selectedResumeId}
+        style={{ marginBottom: '20px' }}
       >
         {isLoading ? 'Generating...' : 'Generate Prompt'}
       </button>
@@ -240,24 +315,7 @@ const GeneratePage: React.FC = () => {
         <div className="prompt-output" style={{ position: 'relative' }}>
           <h3>Generated Prompt</h3>
           <button 
-            onClick={() => {
-              navigator.clipboard.writeText(promptOutput)
-                .then(() => {
-                  console.log('Prompt copied to clipboard');
-                  // Optional: show temporary feedback
-                  const button = document.getElementById('copy-button');
-                  if (button) {
-                    const originalText = button.innerHTML;
-                    button.innerHTML = '✓';
-                    button.style.backgroundColor = '#4CAF50';
-                    setTimeout(() => {
-                      button.innerHTML = originalText;
-                      button.style.backgroundColor = '';
-                    }, 1500);
-                  }
-                })
-                .catch(err => console.error('Failed to copy prompt:', err));
-            }} 
+            onClick={() => copyToClipboard(promptOutput)} 
             id="copy-button"
             style={{
               position: 'absolute',
@@ -287,6 +345,52 @@ const GeneratePage: React.FC = () => {
           }}>{promptOutput}</pre>
         </div>
       )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div 
+          className="toast-notification"
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#4CAF50', // Green color
+            color: 'white',
+            padding: '10px 20px',
+            borderRadius: '4px',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+            zIndex: 1000,
+            animation: 'toastLifecycle 3s ease-out forwards'
+          }}
+        >
+          {toastMessage}
+        </div>
+      )}
+
+      {/* Add the animation styles */}
+      <style>
+        {`
+          @keyframes toastLifecycle {
+            0% {
+              transform: translate(-50%, 100%);
+              opacity: 0;
+            }
+            10% {
+              transform: translate(-50%, 0);
+              opacity: 1;
+            }
+            90% {
+              transform: translate(-50%, 0);
+              opacity: 1;
+            }
+            100% {
+              transform: translate(-50%, 0);
+              opacity: 0;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 };
