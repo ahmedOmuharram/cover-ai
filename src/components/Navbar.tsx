@@ -49,28 +49,6 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onNavClick }) => {
           </TooltipContent>
         </Tooltip>
 
-        {/* Automatic Button */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <div
-              className={cn(
-                baseButtonClass, 
-                activeView === 'automatic' ? activeButtonClass : inactiveButtonClass
-              )}
-              onClick={() => onNavClick('automatic')}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('automatic')}
-              aria-label="Automatic"
-            >
-              <Bot className="h-5 w-5" /> {/* Icon */} 
-            </div>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            <p>Automatic</p>
-          </TooltipContent>
-        </Tooltip>
-
         {/* My Documents Button */} 
         <Tooltip>
           <TooltipTrigger asChild>

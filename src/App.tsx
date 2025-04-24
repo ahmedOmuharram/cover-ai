@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import Navbar, { ActiveView } from "./components/Navbar.js";
-import UploadSection from "./components/UploadSection.js";
-import DocumentList from "./components/DocumentList.js";
-import GeneratePage from "./components/GeneratePage.js";
-import AutomaticPage from "./components/AutomaticPage.js";
+import Navbar, { ActiveView } from "./components/Navbar";
+import UploadSection from "./components/UploadSection";
+import DocumentList from "./components/DocumentList";
+import GenerationView from "./components/GenerationView";
 import {
   addCoverLetter,
   getAllCoverLetters,
@@ -19,7 +18,7 @@ import {
 import { Button } from "./components/ui/button.js";
 import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Document {
   id: number;
@@ -197,8 +196,6 @@ function App() {
               <div className="content-area flex-grow overflow-y-auto p-4"> 
                 {/* Conditionally render content based on activeView */}
 
-                {activeView === 'automatic' && <AutomaticPage autoDownload={autoDownload} />}
-
                 {activeView === 'view' && (coverLetters.length > 0 || resumes.length > 0) &&
                   <DocumentList
                     letters={coverLetters}
@@ -218,8 +215,12 @@ function App() {
                   />
                 }
 
-                {/* Add Generate Page */}
-                {activeView === 'generate' && <GeneratePage />} 
+                {/* Combined Generation View */}
+                {activeView === 'generate' && 
+                  <GenerationView 
+                    autoDownload={autoDownload} // Pass down autoDownload prop
+                  />
+                }
 
                 {/* Settings Page - Apply Tailwind classes */}
                 {activeView === 'settings' &&
