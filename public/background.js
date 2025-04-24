@@ -15,17 +15,21 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   // Check if the clicked menu item is 'generateWithText' and text is selected
   if (info.menuItemId === "generateWithText" && info.selectionText && tab?.id) {
     const selectedText = info.selectionText; // Get the selected text
+    console.log("Selected text for job description:", selectedText);
+
     // Open the side panel first
     chrome.sidePanel.open({ tabId: tab.id })
       .then(() => {
         console.log("Side panel opened for tab:", tab.id);
-        // Send a message to the side panel (or other parts of the extension)
-        // Add a small delay to potentially allow the side panel UI to initialize
+        // Send a message to the side panel with the highlighted text (which takes priority)
         setTimeout(() => {
             chrome.runtime.sendMessage({
                 type: "JOB_DESCRIPTION_TEXT", // Message type identifier
-                payload: { text: selectedText } // Data payload
-            }).catch(error => console.error('Error sending message:', error)); // Add error handling for sendMessage
+                payload: { 
+                  text: selectedText,
+                  source: 'highlight' // Mark as coming from user highlight
+                }
+            }).catch(error => console.error('Error sending message:', error));
         }, 100); // 100ms delay
       })
       .catch(error => console.error('Error opening side panel or sending message:', error));
@@ -38,6 +42,21 @@ chrome.action.onClicked.addListener((tab) => {
   if (tab.id) {
     // Open the side panel using tabId for better context
     chrome.sidePanel.open({ tabId: tab.id })
+      .then(() => {
+        // If we have a scraped job description and we're on a LinkedIn job page, send it
+        if (lastScrapedJobDescription && 
+            (tab.url?.startsWith('https://www.linkedin.com/jobs/view/') ||
+             tab.url?.startsWith('https://www.linkedin.com/jobs/collections/'))) {
+          setTimeout(() => {
+            chrome.runtime.sendMessage({
+              type: 'JOB_DESCRIPTION_TEXT',
+              payload: { text: lastScrapedJobDescription, source: 'scraper' }
+            }).catch(error => {
+              console.error('Error sending job description on action click:', error);
+            });
+          }, 100);
+        }
+      })
       .catch(error => console.error('Error opening side panel on action click:', error));
   }
 });
@@ -82,11 +101,52 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   });
 });
 
-// Optional: Clear badge when a tab is closed
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
     // No need to check URL, just clear any potential badge
     chrome.action.setBadgeText({ text: '', tabId: tabId });
     console.log('Badge cleared for closed tab:', tabId);
+});
+
+// Maintain a variable to store the most recently scraped job description
+let lastScrapedJobDescription = '';
+
+// Listen for messages from content script with scraped job descriptions
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'SCRAPED_JOB_DESCRIPTION' && message.payload?.text) {
+    console.log('Background script received job description from content script');
+    
+    // Store the scraped description
+    lastScrapedJobDescription = message.payload.text;
+    
+    // If the tab has our side panel open, send the description to it
+    if (sender.tab && sender.tab.id) {
+      // Try to open the side panel for this tab
+      chrome.sidePanel.open({ tabId: sender.tab.id })
+        .then(() => {
+          // Once open, send the description
+          setTimeout(() => {
+            chrome.runtime.sendMessage({
+              type: 'JOB_DESCRIPTION_TEXT',
+              payload: { text: lastScrapedJobDescription, source: 'scraper' }
+            }).catch(error => {
+              console.error('Error sending scraped job description to side panel:', error);
+            });
+          }, 100); // Give side panel a moment to initialize
+        })
+        .catch(error => {
+          console.error('Error opening side panel for job description:', error);
+        });
+      
+      // Add a badge to indicate job description is available
+      chrome.action.setBadgeText({ text: '!', tabId: sender.tab.id });
+      chrome.action.setBadgeBackgroundColor({ color: '#CB112D', tabId: sender.tab.id });
+      chrome.action.setBadgeTextColor({ color: '#FFFFFF', tabId: sender.tab.id });
+    }
+    
+    // Send a response to the content script
+    sendResponse({ status: 'received' });
+    return true; // Required to use sendResponse asynchronously
+  }
 });
 
 console.log("Background script loaded and badge logic added.");

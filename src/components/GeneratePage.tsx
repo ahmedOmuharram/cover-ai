@@ -77,8 +77,22 @@ const GeneratePage: React.FC = () => {
     const messageListener = (message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
         console.log("Message received in GeneratePage:", message); // Log received messages
         if (message.type === 'JOB_DESCRIPTION_TEXT' && message.payload?.text) {
-            console.log("Setting job description text:", message.payload.text);
-            setJobDescriptionText(message.payload.text);
+              console.log("Setting job description text:", message.payload.text.substring(0, 50) + "...");
+            
+            // If this is from highlighting, it always overwrites (user selection takes priority)
+            // If it's from scraping, only overwrite if there isn't already text (preserves user edits)
+            if (message.payload.source === 'highlight' || !jobDescriptionText) {
+                setJobDescriptionText(message.payload.text);
+                
+                // Save to session storage
+                chrome.storage.session.set({ jobDescriptionText: message.payload.text }, () => {
+                    if (chrome.runtime.lastError) {
+                        console.error("Error saving job description to session:", chrome.runtime.lastError);
+                    }
+                });
+            } else {
+                console.log("Not overwriting existing job description with scraped content");
+            }
         }
     };
 
@@ -164,19 +178,17 @@ const GeneratePage: React.FC = () => {
     <div className="generate-page">
       <h2>Generate Prompt</h2>
 
-      {/* Display Received Job Description */}
-      {jobDescriptionText && (
-        <div className="job-description-display">
-          <h3>Job Description Context:</h3>
-          <textarea 
-            value={jobDescriptionText} 
-            onChange={(e) => setJobDescriptionText(e.target.value)}
-            rows={5} // Adjust rows as needed
-            style={{ width: '100%', marginBottom: '15px' }} // Basic styling
-            placeholder="Job description text will appear here or paste it manually"
-          /> 
-        </div>
-      )}
+      {/* Display Job Description */}
+      <div className="job-description-display">
+        <h3>Job Description:</h3>
+        <textarea 
+          value={jobDescriptionText} 
+          onChange={(e) => setJobDescriptionText(e.target.value)}
+          rows={5} 
+          style={{ width: '100%', marginBottom: '15px' }} 
+          placeholder="Job description will appear here. You can paste or type a job description, or it will be automatically extracted from LinkedIn job pages. You can also highlight text on any page and right click to generate a prompt with the highlighted text as the job description."
+        /> 
+      </div>
 
       {/* Selections */}
       <div className="selections">
