@@ -180,7 +180,7 @@ const GeneratePage: React.FC = () => {
 
       {/* Display Job Description */}
       <div className="job-description-display">
-        <h3>Job Description:</h3>
+        <h3>Job Description</h3>
         <textarea 
           value={jobDescriptionText} 
           onChange={(e) => setJobDescriptionText(e.target.value)}
@@ -193,7 +193,7 @@ const GeneratePage: React.FC = () => {
       {/* Selections */}
       <div className="selections">
         <div className="select-group">
-          <label htmlFor="cover-letter-select">Select Cover Letter:</label>
+          <label htmlFor="cover-letter-select">Select Cover Letter</label>
           <select 
             id="cover-letter-select"
             value={selectedCoverLetterId}
@@ -208,7 +208,7 @@ const GeneratePage: React.FC = () => {
         </div>
 
         <div className="select-group">
-          <label htmlFor="resume-select">Select Resume:</label>
+          <label htmlFor="resume-select">Select Resume</label>
           <select 
             id="resume-select"
             value={selectedResumeId}
@@ -238,7 +238,7 @@ const GeneratePage: React.FC = () => {
       {/* Output Area */}
       {promptOutput && (
         <div className="prompt-output" style={{ position: 'relative' }}>
-          <h3>Generated Prompt:</h3>
+          <h3>Generated Prompt</h3>
           <button 
             onClick={() => {
               navigator.clipboard.writeText(promptOutput)
