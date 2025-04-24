@@ -180,17 +180,20 @@ function App() {
       {/* Content Area - Render based on loading and letters state */}
       {!isLoading && (
         <>
-          {/* Show initial upload only if no letters AND not trying to access generate page */}
-          {/* TODO: Fix this to 0 when we have a way to check if the DB is empty */}
-          {coverLetters.length === 0 && activeView !== 'generate' && activeView !== 'settings' ? (
-             <UploadSection onFileUpload={handleCoverLetterUpload} title="Upload Cover Letter to Start"/>
+          {/* Show initial upload only if no documents AND not trying to access generate/settings page */}
+          {/* Check both resumes and letters length */} 
+          {(coverLetters.length === 0 && resumes.length === 0) && activeView !== 'generate' && activeView !== 'settings' ? (
+             <UploadSection 
+               onFileUpload={handleCoverLetterUpload} // Or a combined handler if needed initially?
+               title="Upload Document to Start"
+               fullscreen={true} // Enable fullscreen mode
+             />
           ) : (
-            // Render Navbar and content if letters exist OR if viewing Generate/Settings page
+            // Render Navbar and content if documents exist OR if viewing Generate/Settings page
             <>
               <Navbar activeView={activeView} onNavClick={setActiveView} />
 
-              {/* Wrap conditional content in a div with content-area class */}
-              {/* Apply flex-grow, overflow-y-auto for scroll, and overflow-x-hidden */}
+              {/* Content area with padding and scrolling */}
               <div className="content-area flex-grow overflow-y-auto p-4"> 
                 {/* Conditionally render content based on activeView */}
 
@@ -200,17 +203,18 @@ function App() {
                   <DocumentList
                     letters={coverLetters}
                     resumes={resumes}
-                    onFileUpload={handleFileUpload}
+                    onFileUpload={handleFileUpload} 
                     onDelete={handleDeleteDocument}
                     onRename={handleRenameDocument}
                   />
                 }
 
                 {activeView === 'upload' &&
-                  // This section now ONLY uploads cover letters
+                  // This section now ONLY uploads cover letters - Consider adding resume upload here too?
                   <UploadSection
-                    title="Upload Cover Letter"
+                    title="Upload Cover Letter" 
                     onFileUpload={(file: File) => handleFileUpload(file, 'letter')}
+                    // fullscreen is implicitly false here (default)
                   />
                 }
 
