@@ -1,7 +1,7 @@
 import React from 'react';
 import './Navbar.css';
 
-export type ActiveView = 'upload' | 'view' | 'settings' | 'generate';
+export type ActiveView = 'upload' | 'view' | 'settings' | 'generate' | 'automatic';
 
 interface NavbarProps {
   activeView: ActiveView;
@@ -23,6 +23,16 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onNavClick }) => {
         onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('generate')}
       >
         Generate Prompt
+        <span className="underline"></span>
+      </div>
+      <div 
+        className={getItemClass('automatic')}
+        onClick={() => onNavClick('automatic')}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('automatic')}
+      >
+        Automatic
         <span className="underline"></span>
       </div>
       <div 
@@ -49,4 +59,4 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onNavClick }) => {
   );
 };
 
-export default Navbar; 
+export default Navbar;

@@ -1,0 +1,144 @@
+.automatic-page {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.automatic-page h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.selections {
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.select-group {
+  margin-bottom: 15px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.select-group label {
+  margin-bottom: 5px;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.select-group select {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  min-width: 200px;
+  max-width: 80%;
+}
+
+.generate-button {
+  padding: 10px 20px;
+  background-color: #570424;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+  align-self: center;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.generate-button:hover:not(:disabled) {
+  background-color: #8f4362;
+}
+
+.generate-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: red;
+  text-align: center;
+  margin-bottom: 15px;
+  flex-shrink: 0;
+}
+
+.prompt-output {
+  margin-top: 15px;
+  border: 1px solid #eee;
+  border-radius: 5px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  flex-grow: 1;
+  overflow-y: auto;
+  text-align: left;
+  position: relative;
+}
+
+.prompt-output h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.prompt-output pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.job-description-display {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background-color: #fdfdfd;
+  flex-shrink: 0;
+}
+
+.job-description-display h3 {
+  margin-bottom: 10px;
+  font-size: 1.1em;
+  text-align: center;
+}
+
+.job-description-display textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.job-description-display textarea:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+}
+
+#copy-button {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#copy-button:hover {
+  background-color: #f0f0f0;
+  border-color: #999;
+}

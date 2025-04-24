@@ -4,6 +4,7 @@ import Navbar, { ActiveView } from "./components/Navbar";
 import UploadSection from "./components/UploadSection";
 import DocumentList from "./components/DocumentList";
 import GeneratePage from "./components/GeneratePage";
+import AutomaticPage from "./components/AutomaticPage";
 import {
   addCoverLetter,
   getAllCoverLetters,
@@ -182,6 +183,9 @@ function App() {
               {/* Wrap conditional content in a div with content-area class */}
               <div className="content-area">
                 {/* Conditionally render content based on activeView */} 
+                
+                {activeView === 'automatic' && <AutomaticPage />}
+                
                 {activeView === 'view' && (coverLetters.length > 0 || resumes.length > 0) && 
                   <DocumentList 
                     letters={coverLetters}
