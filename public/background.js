@@ -42,4 +42,51 @@ chrome.action.onClicked.addListener((tab) => {
   }
 });
 
-console.log("Background script loaded and context menu configured."); // Add a log
+// Listener for Tab Updates (URL changes & Badge Management)
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  // We need the tab object and specifically its URL to make decisions
+  // Check if the update is for the currently active tab, as we only want to badge the active tab's state
+  chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
+      // Ensure we have an active tab and it's the one being updated
+      if (activeTabs && activeTabs.length > 0 && activeTabs[0].id === tabId) {
+        const currentTab = activeTabs[0]; // Use the reliable tab info from query
+        // Use the URL from the tab object from the query, or fallback to changeInfo if tab url is undefined (less likely)
+        const currentUrl = currentTab.url || changeInfo.url; 
+
+        if (currentUrl && (currentUrl.startsWith('https://www.linkedin.com/jobs/view/') || currentUrl.startsWith('https://www.linkedin.com/jobs/collections/'))) {
+          // Set a badge (e.g., a red dot)
+          chrome.action.setBadgeText({ text: '!', tabId: tabId}); // Use space for a dot effect
+          chrome.action.setBadgeBackgroundColor({ color: '#CB112D', tabId: tabId }); // Red color
+          chrome.action.setBadgeTextColor({ color: '#FFFFFF', tabId: tabId }); // White text
+          console.log('Badge set for tab:', tabId);
+        } else {
+          // If the URL doesn't match, clear the badge for this tab
+          // Check if badge was potentially set before clearing
+          chrome.action.getBadgeText({ tabId: tabId }, (badgeText) => {
+            if (badgeText) { // Only clear if there is a badge
+                 chrome.action.setBadgeText({ text: '', tabId: tabId });
+                 console.log('Badge cleared for tab:', tabId);
+            }
+          });
+        }
+      } else if (activeTabs && activeTabs.length > 0 && activeTabs[0].id !== tabId) {
+          // Handle cases where the updated tab is NOT the active one - clear its badge if it had one
+          // Optional: depends if you want badges only on active tab or persistent on non-active tabs
+          chrome.action.getBadgeText({ tabId: tabId }, (badgeText) => {
+            if (badgeText) { 
+                 chrome.action.setBadgeText({ text: '', tabId: tabId });
+                 console.log('Badge cleared for non-active tab:', tabId);
+            }
+          });
+      }
+  });
+});
+
+// Optional: Clear badge when a tab is closed
+chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+    // No need to check URL, just clear any potential badge
+    chrome.action.setBadgeText({ text: '', tabId: tabId });
+    console.log('Badge cleared for closed tab:', tabId);
+});
+
+console.log("Background script loaded and badge logic added.");
