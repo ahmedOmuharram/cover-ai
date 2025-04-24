@@ -553,7 +553,7 @@ TODO: Add instructions here.`;
                      </Alert>
                    )}
                    {!apiKeyError && apiKey && validateApiKey(apiKey) && (
-                     <p className="text-xs text-muted-foreground mt-1">API Key appears valid.</p>
+                     <p className="text-xs text-muted-foreground mt-1">API key appears valid!</p>
                    )}
                  </div>
 
