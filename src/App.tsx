@@ -32,6 +32,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true); // Track initial loading
   const [tone, setTone] = useState<ToneSetting>('professional'); // Add state for tone
   const [autoCopy, setAutoCopy] = useState<boolean>(false); // Add state for auto-copy setting
+  const [autoDownload, setAutoDownload] = useState<boolean>(false); // Add state for auto-download setting
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -44,8 +45,8 @@ function App() {
       setCoverLetters(letters.map(l => ({ id: l.id, name: l.name }))); // Map to simple Document for state
       setResumes(resumes.map(r => ({ id: r.id, name: r.name }))); // Add this line to update resumes state
 
-      // Load saved tone
-      chrome.storage.local.get(['tone', 'autoCopy'], (result) => {
+      // Load saved tone and settings
+      chrome.storage.local.get(['tone', 'autoCopy', 'autoDownload'], (result) => {
         if (result.tone) {
            // Validate loaded tone against defined types
            const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
@@ -66,6 +67,10 @@ function App() {
         // Load auto-copy setting
         setAutoCopy(!!result.autoCopy);
         console.log('Loaded auto-copy setting:', !!result.autoCopy);
+
+        // Load auto-download setting
+        setAutoDownload(!!result.autoDownload);
+        console.log('Loaded auto-download setting:', !!result.autoDownload);
       });
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -184,7 +189,7 @@ function App() {
               <div className="content-area">
                 {/* Conditionally render content based on activeView */} 
                 
-                {activeView === 'automatic' && <AutomaticPage />}
+                {activeView === 'automatic' && <AutomaticPage autoDownload={autoDownload} />}
                 
                 {activeView === 'view' && (coverLetters.length > 0 || resumes.length > 0) && 
                   <DocumentList 
@@ -261,6 +266,32 @@ function App() {
                         }}
                       />
                     </div>
+
+                    {/* Auto-download Setting */}
+                    <div className="setting-item" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      marginBottom: '15px'
+                    }}>
+                      <label htmlFor="auto-download-checkbox" style={{
+                        marginRight: '10px',
+                        fontWeight: 'bold',
+                        flexShrink: 0
+                      }}>
+                        Auto-download PDF:
+                      </label>
+                      <input
+                        id="auto-download-checkbox"
+                        type="checkbox"
+                        checked={autoDownload}
+                        onChange={(e) => {
+                          setAutoDownload(e.target.checked);
+                          chrome.storage.local.set({ autoDownload: e.target.checked }, () => {
+                            console.log('Auto-download setting saved:', e.target.checked);
+                          });
+                        }}
+                      />
+                    </div>
                     
                     {/* Clear Data Button Setting */}
                     <div className="setting-item" style={{
@@ -288,6 +319,43 @@ function App() {
                         }}
                       >
                         Clear All Data (Letters & Resumes)
+                      </button>
+                    </div>
+
+                    {/* Clear API Key Button Setting */}
+                    <div className="setting-item" style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      marginBottom: '15px'
+                     }}>
+                      <label style={{
+                        marginRight: '10px',
+                        fontWeight: 'bold',
+                         flexShrink: 0
+                      }}>
+                        API Key:
+                      </label>
+                      <button 
+                        onClick={() => {
+                          chrome.storage.local.remove(['openaiApiKey'], () => {
+                            if (chrome.runtime.lastError) {
+                              console.error('Error clearing API key:', chrome.runtime.lastError);
+                            } else {
+                              console.log('API key cleared successfully');
+                            }
+                          });
+                        }}
+                        style={{
+                          padding: '8px 15px',
+                          fontSize: '0.9em',
+                          backgroundColor: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Clear API Key
                       </button>
                     </div>
 

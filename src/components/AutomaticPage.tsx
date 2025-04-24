@@ -7,6 +7,7 @@ import {
   getResumeContent
 } from '../utils/indexedDB';
 import OpenAI from 'openai';
+import { jsPDF } from 'jspdf';
 import './AutomaticPage.css';
 
 interface DocumentInfo {
@@ -14,7 +15,11 @@ interface DocumentInfo {
   name: string;
 }
 
-const AutomaticPage: React.FC = () => {
+interface AutomaticPageProps {
+  autoDownload: boolean;
+}
+
+const AutomaticPage: React.FC<AutomaticPageProps> = ({ autoDownload }) => {
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
   const [resumes, setResumes] = useState<DocumentInfo[]>([]);
   const [selectedCoverLetterId, setSelectedCoverLetterId] = useState<string>('');
@@ -40,6 +45,21 @@ const AutomaticPage: React.FC = () => {
     }
   };
 
+  const handleSaveApiKey = () => {
+    if (validateApiKey(apiKey)) {
+      chrome.storage.local.set({ openaiApiKey: apiKey }, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Error saving API key:', chrome.runtime.lastError);
+          setApiKeyError('Failed to save API key');
+        } else {
+          setApiKeyError('');
+        }
+      });
+    } else {
+      setApiKeyError("Please enter a valid OpenAI API key");
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -49,6 +69,16 @@ const AutomaticPage: React.FC = () => {
         ]);
         setCoverLetters(clData.map(d => ({ id: d.id, name: d.name })));
         setResumes(resumeData.map(d => ({ id: d.id, name: d.name })));
+
+        // Load saved API key
+        chrome.storage.local.get(['openaiApiKey'], (result) => {
+          if (result.openaiApiKey) {
+            setApiKey(result.openaiApiKey);
+            if (!validateApiKey(result.openaiApiKey)) {
+              setApiKeyError("Saved API key is invalid");
+            }
+          }
+        });
 
         chrome.storage.session.get(['tone', 'selectedCoverLetterId', 'selectedResumeId', 'jobDescriptionText'], (result) => {
           if (result.tone) {
@@ -91,6 +121,28 @@ const AutomaticPage: React.FC = () => {
     };
   }, []);
 
+  const generatePDF = (text: string) => {
+    const doc = new jsPDF();
+    doc.setFont('times', 'normal');
+    doc.setFontSize(12);
+    
+    const lines = text.split('\n');
+    let y = 20;
+    const lineHeight = 6;
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    lines.forEach(line => {
+      const splitLines = doc.splitTextToSize(line.trim(), pageWidth - (margin * 2));
+      splitLines.forEach((splitLine: string) => {
+        doc.text(splitLine, margin, y);
+        y += lineHeight;
+      });
+    });
+
+    return doc;
+  };
+
   const handleGenerate = async () => {
     if (!apiKey) {
       setApiKeyError("Please enter your OpenAI API key");
@@ -122,48 +174,55 @@ const AutomaticPage: React.FC = () => {
         return;
       }
 
-      console.log(apiKey);
+      const openai = new OpenAI({
+        apiKey: apiKey,
+        dangerouslyAllowBrowser: true
+      });
 
-      // const openai = new OpenAI({
-      //   apiKey: apiKey,
-      //   dangerouslyAllowBrowser: true
-      // });
+      const systemPrompt = `You are an expert cover letter writer. You have access to the following information:
+      - The original cover letter: ${coverLetterContent}
+      - The user's resume: ${resumeContent}
+      - The job description: ${jobDescriptionText || 'N/A'}
+      - The desired tone: ${tone}
 
-      // const systemPrompt = `You are an expert cover letter writer. You have access to the following information:
-      // - The original cover letter: ${coverLetterContent}
-      // - The user's resume: ${resumeContent}
-      // - The job description: ${jobDescriptionText || 'N/A'}
-      // - The desired tone: ${tone}
-
-      // Your task is to generate a new cover letter that:
-      // 1. Matches the job requirements
-      // 2. Highlights relevant experience from the resume
-      // 3. Maintains the style of the original cover letter
-      // 4. Uses the specified tone (${tone})
+      Your task is to generate a concise, professional cover letter that:
+      1. Matches the job requirements
+      2. Highlights relevant experience from the resume
+      3. Maintains the style of the original cover letter
+      4. Uses the specified tone (${tone})
+      5. Is exactly 270 words or less
       
-      // Make sure to:
-      // - Keep the same general structure as the original cover letter
-      // - Use specific examples from the resume
-      // - Address key requirements from the job description
-      // - Maintain professional formatting`;
+      Make sure to:
+      - Keep the same general structure as the original cover letter
+      - Use specific examples from the resume
+      - Address key requirements from the job description
+      - Maintain professional formatting
+      - Be concise and impactful
+      - Include all essential sections: header, date, salutation, body paragraphs, and closing
+      - Focus on quality over quantity
+      - Count words carefully to ensure the total is 270 or less`;
 
-      // const completion = await openai.chat.completions.create({
-      //   model: "gpt-4o",
-      //   messages: [
-      //     { role: "system", content: systemPrompt },
-      //     { role: "user", content: "Please generate a tailored cover letter based on the provided information." }
-      //   ],
-      //   temperature: 0.7
-      // }).catch((error) => {
-      //   if (error.response?.status === 401) {
-      //     throw new Error("Invalid API key. Please check your API key and try again.");
-      //   }
-      //   throw error;
-      // });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: "Please generate a tailored cover letter based on the provided information." }
+        ],
+        temperature: 0.7
+      }).catch((error) => {
+        if (error.response?.status === 401) {
+          throw new Error("Invalid API key. Please check your API key and try again.");
+        }
+        throw error;
+      });
 
-      //const generatedCoverLetter = completion.choices[0]?.message?.content || '';
-      //setPromptOutput(generatedCoverLetter);
-
+      const generatedCoverLetter = completion.choices[0]?.message?.content || '';
+      setPromptOutput(generatedCoverLetter);
+      
+      if (autoDownload) {
+        const doc = generatePDF(generatedCoverLetter);
+        doc.save('cover_letter.pdf');
+      }
       
     } catch (err: any) {
       console.error("Error generating cover letter:", err);
@@ -183,22 +242,51 @@ const AutomaticPage: React.FC = () => {
 
       <div className="api-key-section">
         <h3>OpenAI API Key</h3>
-        <div className="api-key-input">
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => handleApiKeyChange(e.target.value)}
-            placeholder="Enter your OpenAI API key"
-            spellCheck="false"
-            autoComplete="off"
-          />
-          {apiKeyError && <p className="error-message">{apiKeyError}</p>}
-          {(!apiKey || apiKeyError) && (
-            <div className="api-key-info">
-              <p>ℹ️ Your API key is required for automatic generation</p>
-            </div>
-          )}
+        <div className="api-key-input" style={{ 
+          display: 'flex', 
+          gap: '10px', 
+          alignItems: 'center',
+          marginBottom: '15px'
+        }}>
+          <div style={{ flex: 1 , alignItems: 'center', justifyContent: 'center'}}>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => handleApiKeyChange(e.target.value)}
+              placeholder="Enter your OpenAI API key"
+              spellCheck="false"
+              autoComplete="off"
+              style={{ 
+                flex: 1,
+                padding: '2px 8px',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+                height: '32px',
+                lineHeight: '20px',
+                marginRight: '10px'
+              }}
+            />
+            <button 
+              onClick={handleSaveApiKey}
+              className="generate-button"
+              style={{ 
+                padding: '6px 12px',
+                height: '32px',
+                whiteSpace: 'nowrap',
+                lineHeight: '20px'
+              }}
+              disabled={!validateApiKey(apiKey)}
+            >
+              Save Key
+            </button>
+          </div>
         </div>
+        {apiKeyError && <p className="error-message">{apiKeyError}</p>}
+        {(!apiKey || apiKeyError) && (
+          <div className="api-key-info">
+            <p>ℹ️ Your API key is required for automatic generation</p>
+          </div>
+        )}
       </div>
 
       <div className="job-description-display">
@@ -255,26 +343,66 @@ const AutomaticPage: React.FC = () => {
       {error && <p className="error-message">{error}</p>}
 
       {promptOutput && (
-        <div className="prompt-output">
-          <h3>Generated Prompt</h3>
+        <div className="download-section">
+          <h3>Cover Letter Generated!</h3>
           <button 
-            onClick={() => navigator.clipboard.writeText(promptOutput)}
-            id="copy-button"
-            style={{
-              position: 'absolute',
-              top: '12px',
-              right: '10px',
-              background: 'none',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              padding: '5px 10px',
-              cursor: 'pointer'
+            onClick={() => {
+              const doc = generatePDF(promptOutput);
+              doc.save('cover_letter.pdf');
             }}
-            title="Copy to clipboard"
+            className="generate-button"
+            style={{ marginBottom: '20px' }}
           >
-            📋 Copy
+            Download PDF
           </button>
-          <pre>{promptOutput}</pre>
+
+          <div className="prompt-output" style={{ position: 'relative' }}>
+            <h3>Generated Cover Letter</h3>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(promptOutput)
+                  .then(() => {
+                    const button = document.getElementById('copy-button');
+                    if (button) {
+                      const originalText = button.innerHTML;
+                      button.innerHTML = '✓';
+                      button.style.backgroundColor = '#4CAF50';
+                      setTimeout(() => {
+                        button.innerHTML = originalText;
+                        button.style.backgroundColor = '';
+                      }, 1500);
+                    }
+                  })
+                  .catch(err => console.error('Failed to copy text:', err));
+              }}
+              id="copy-button"
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '10px',
+                background: 'none',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                padding: '5px 10px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '14px'
+              }}
+              title="Copy to clipboard"
+            >
+              📋 Copy
+            </button>
+            <pre style={{ 
+              marginTop: '30px', 
+              whiteSpace: 'pre-wrap',
+              backgroundColor: '#f5f5f5',
+              padding: '15px',
+              borderRadius: '4px',
+              border: '1px solid #ddd'
+            }}>{promptOutput}</pre>
+          </div>
         </div>
       )}
     </div>

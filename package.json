@@ -8,6 +8,7 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.27",
     "@types/react-dom": "^18.0.10",
+    "jspdf": "^3.0.1",
     "openai": "^4.96.0",
     "pdfjs-dist": "^5.1.91",
     "react": "^18.2.0",
