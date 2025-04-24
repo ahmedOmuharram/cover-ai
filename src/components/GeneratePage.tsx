@@ -237,9 +237,54 @@ const GeneratePage: React.FC = () => {
 
       {/* Output Area */}
       {promptOutput && (
-        <div className="prompt-output">
+        <div className="prompt-output" style={{ position: 'relative' }}>
           <h3>Generated Prompt:</h3>
-          <pre>{promptOutput}</pre>
+          <button 
+            onClick={() => {
+              navigator.clipboard.writeText(promptOutput)
+                .then(() => {
+                  console.log('Prompt copied to clipboard');
+                  // Optional: show temporary feedback
+                  const button = document.getElementById('copy-button');
+                  if (button) {
+                    const originalText = button.innerHTML;
+                    button.innerHTML = '✓';
+                    button.style.backgroundColor = '#4CAF50';
+                    setTimeout(() => {
+                      button.innerHTML = originalText;
+                      button.style.backgroundColor = '';
+                    }, 1500);
+                  }
+                })
+                .catch(err => console.error('Failed to copy prompt:', err));
+            }} 
+            id="copy-button"
+            style={{
+              position: 'absolute',
+              top: '12px',
+              right: '10px',
+              background: 'none',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              padding: '5px 10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '14px'
+            }}
+            title="Copy to clipboard"
+          >
+            📋 Copy
+          </button>
+          <pre style={{ 
+            marginTop: '30px', 
+            whiteSpace: 'pre-wrap',
+            backgroundColor: '#f5f5f5',
+            padding: '15px',
+            borderRadius: '4px',
+            border: '1px solid #ddd'
+          }}>{promptOutput}</pre>
         </div>
       )}
     </div>
