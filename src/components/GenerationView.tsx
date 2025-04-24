@@ -44,6 +44,7 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
   const [apiKey, setApiKey] =useState<string>('');
   const [apiKeyError, setApiKeyError] = useState<string>('');
   const [autoCopy, setAutoCopy] = useState<boolean>(false); // Needed for manual prompt auto-copy
+  const [additionalContext, setAdditionalContext] = useState<string>(''); // State for additional context
 
   // Loading/Error States
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
@@ -117,11 +118,12 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
           setAutoCopy(!!localResult.autoCopy);
         });
 
-        // Load selections & JD from session storage
-        chrome.storage.session.get(['selectedCoverLetterId', 'selectedResumeId', 'jobDescriptionText'], (sessionResult) => {
+        // Load selections & JD & Context from session storage
+        chrome.storage.session.get(['selectedCoverLetterId', 'selectedResumeId', 'jobDescriptionText', 'additionalContext'], (sessionResult) => {
           if (sessionResult.selectedCoverLetterId) setSelectedCoverLetterId(sessionResult.selectedCoverLetterId);
           if (sessionResult.selectedResumeId) setSelectedResumeId(sessionResult.selectedResumeId);
           if (sessionResult.jobDescriptionText) setJobDescriptionText(sessionResult.jobDescriptionText);
+          if (sessionResult.additionalContext) setAdditionalContext(sessionResult.additionalContext); // Load context
         });
 
       } catch (err) {
@@ -159,10 +161,11 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
     if (selectedCoverLetterId) dataToSave.selectedCoverLetterId = selectedCoverLetterId;
     if (selectedResumeId) dataToSave.selectedResumeId = selectedResumeId;
     dataToSave.jobDescriptionText = jobDescriptionText; // Always save current JD
+    dataToSave.additionalContext = additionalContext; // Save context
     if (Object.keys(dataToSave).length > 0) {
       chrome.storage.session.set(dataToSave);
     }
-  }, [selectedCoverLetterId, selectedResumeId, jobDescriptionText]);
+  }, [selectedCoverLetterId, selectedResumeId, jobDescriptionText, additionalContext]);
 
 
   // --- Event Handlers (To be fully implemented) ---
@@ -211,6 +214,10 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
 ${jobDescriptionText || 'N/A'}
 
 Tone: ${tone}
+
+Additional Context:
+${additionalContext || 'N/A'}
+
 Cover Letter:
 ${coverLetterContent}
 
@@ -256,6 +263,7 @@ TODO: Add instructions here.`;
 -      - The original cover letter: ${coverLetterContent}
 -      - The user's resume: ${resumeContent}
 -      - The job description: ${jobDescriptionText || 'N/A'}
+-      - Additional Context: ${additionalContext || 'N/A'}
 -      - The desired tone: ${tone}
 -
 -      Your task is to generate a concise, professional cover letter that:
@@ -337,17 +345,18 @@ TODO: Add instructions here.`;
   if (isInitialLoading) {
     return (
       <div className="space-y-6 p-4">
-        {/* Combined Skeleton - Needs refinement based on final layout */}
-        <Skeleton className="h-10 w-1/2 mb-4" /> {/* Placeholder for TabsList */}
-        <Skeleton className="h-6 w-1/4 mb-2" />
+        {/* Combined Skeleton */}
+        <Skeleton className="h-6 w-1/4 mb-2" /> {/* Gen Inputs Title */}
         <div className="grid grid-cols-2 gap-4">
           <Skeleton className="h-10" />
           <Skeleton className="h-10" />
         </div>
-        <Skeleton className="h-24 mt-4 mb-4" />
-         {/* Placeholder for API key or Generate button */}
-        <Skeleton className="h-10 w-1/4" />
-        <Skeleton className="h-40 mt-6" /> {/* Placeholder for output */}
+        <Skeleton className="h-24 mt-4 mb-4" /> {/* JD Textarea */}
+        <Skeleton className="h-16 mt-4 mb-4" /> {/* Additional Context Textarea */}
+        <Skeleton className="h-10 w-1/2 mb-4" /> {/* TabsList */}
+         {/* Placeholder for tab content (button/output) */}
+        <Skeleton className="h-10 w-1/4" /> 
+        <Skeleton className="h-40 mt-6" /> 
       </div>
     );
   }
@@ -357,8 +366,10 @@ TODO: Add instructions here.`;
     <div className="generation-view space-y-6 p-4">
       {/* Common Inputs Section */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Generation Inputs</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+         {/* ... Generation Inputs Title, Selectors, JD Textarea ... */}
+          <h2 className="text-lg font-semibold">Generation Inputs</h2>
+          {/* Selectors Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Cover Letter Select */}
             <div className="space-y-1.5">
               <Label htmlFor="cover-letter-select">Base Cover Letter</Label>
@@ -421,7 +432,21 @@ TODO: Add instructions here.`;
               disabled={isGeneratingPrompt || isGeneratingAutomatic}
              />
            </div>
-         </div>
+      </div>
+
+       {/* Additional Context Textarea (Before Tabs) */}
+       <div className="space-y-1.5">
+         <Label htmlFor="additional-context">Additional Context (Optional)</Label>
+         <Textarea
+          id="additional-context"
+          placeholder="Provide any extra instructions, details about the company, specific skills to emphasize, etc..."
+          value={additionalContext}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAdditionalContext(e.target.value)}
+          rows={4} // Shorter default height
+          className="min-h-[80px]"
+          disabled={isGeneratingPrompt || isGeneratingAutomatic}
+         />
+       </div>
 
         <Tabs defaultValue="prompt" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
