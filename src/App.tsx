@@ -42,12 +42,6 @@ function App() {
       setCoverLetters(letters.map(l => ({ id: l.id, name: l.name }))); // Map to simple Document for state
       setResumes(resumes.map(r => ({ id: r.id, name: r.name }))); // Add this line to update resumes state
 
-      if (letters.length > 0 || resumes.length > 0) { // Update condition to check for both
-        setActiveView('view');
-      } else {
-        if(activeView !== 'generate') setActiveView('upload');
-      }
-
       // Load saved tone
       chrome.storage.local.get(['tone'], (result) => {
         if (result.tone) {

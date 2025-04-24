@@ -23,8 +23,9 @@ const GeneratePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [tone, setTone] = useState<ToneSetting>('professional'); // Add state for tone
+  const [jobDescriptionText, setJobDescriptionText] = useState<string>(''); // State for received job description
 
-  // Load documents and tone
+  // Effect to load initial data (documents, tone, and persisted state)
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -36,8 +37,9 @@ const GeneratePage: React.FC = () => {
         setCoverLetters(clData.map(d => ({ id: d.id, name: d.name })));
         setResumes(resumeData.map(d => ({ id: d.id, name: d.name })));
 
-        // Load saved tone
-        chrome.storage.local.get(['tone'], (result) => {
+        // Load saved tone and selections from session storage
+        chrome.storage.session.get(['tone', 'selectedCoverLetterId', 'selectedResumeId', 'jobDescriptionText'], (result) => {
+          // Load Tone
           if (result.tone) {
             const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
             if (validTones.includes(result.tone)) {
@@ -49,14 +51,65 @@ const GeneratePage: React.FC = () => {
           } else {
             setTone('professional'); // Default if not found
           }
+
+          // Load Selections and Job Description Text
+          if (result.selectedCoverLetterId) {
+            setSelectedCoverLetterId(result.selectedCoverLetterId);
+            console.log('GeneratePage loaded selectedCoverLetterId:', result.selectedCoverLetterId);
+          }
+          if (result.selectedResumeId) {
+            setSelectedResumeId(result.selectedResumeId);
+             console.log('GeneratePage loaded selectedResumeId:', result.selectedResumeId);
+          }
+           if (result.jobDescriptionText) {
+            setJobDescriptionText(result.jobDescriptionText);
+            console.log('GeneratePage loaded jobDescriptionText:', result.jobDescriptionText);
+          }
         });
       } catch (err) {
-        console.error("Error loading documents:", err);
-        setError("Failed to load documents.");
+        console.error("Error loading initial data:", err);
+        setError("Failed to load initial data.");
       }
     };
     loadData();
-  }, []);
+
+    // --- Add Message Listener ---
+    const messageListener = (message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
+        console.log("Message received in GeneratePage:", message); // Log received messages
+        if (message.type === 'JOB_DESCRIPTION_TEXT' && message.payload?.text) {
+            console.log("Setting job description text:", message.payload.text);
+            setJobDescriptionText(message.payload.text);
+        }
+    };
+
+    chrome.runtime.onMessage.addListener(messageListener);
+    console.log("GeneratePage message listener added.");
+
+    // Cleanup listener on component unmount
+    return () => {
+        chrome.runtime.onMessage.removeListener(messageListener);
+        console.log("GeneratePage message listener removed.");
+    };
+    // --- End Message Listener ---
+
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  // Effect to save selections and job description to session storage on change
+  useEffect(() => {
+    const dataToSave: { [key: string]: any } = {};
+    if (selectedCoverLetterId) dataToSave.selectedCoverLetterId = selectedCoverLetterId;
+    if (selectedResumeId) dataToSave.selectedResumeId = selectedResumeId;
+    // Save jobDescriptionText even if empty to clear it if needed
+    dataToSave.jobDescriptionText = jobDescriptionText;
+
+    if (Object.keys(dataToSave).length > 0) {
+        chrome.storage.session.set(dataToSave, () => {
+           if (chrome.runtime.lastError) {
+               console.error("Error saving session state:", chrome.runtime.lastError);
+           }
+        });
+    }
+  }, [selectedCoverLetterId, selectedResumeId, jobDescriptionText]); // Dependencies trigger save
 
   const handleGenerate = async () => {
     if (!selectedCoverLetterId || !selectedResumeId) {
@@ -84,6 +137,9 @@ const GeneratePage: React.FC = () => {
 
       // --- Start Prompt Formatting ---
       const generatedPrompt = `
+        Job Description:
+        ${jobDescriptionText || 'N/A'} 
+
         Tone: ${tone}
         Cover Letter:
         ${coverLetterContent}
@@ -107,6 +163,20 @@ const GeneratePage: React.FC = () => {
   return (
     <div className="generate-page">
       <h2>Generate Prompt</h2>
+
+      {/* Display Received Job Description */}
+      {jobDescriptionText && (
+        <div className="job-description-display">
+          <h3>Job Description Context:</h3>
+          <textarea 
+            value={jobDescriptionText} 
+            onChange={(e) => setJobDescriptionText(e.target.value)}
+            rows={5} // Adjust rows as needed
+            style={{ width: '100%', marginBottom: '15px' }} // Basic styling
+            placeholder="Job description text will appear here or paste it manually"
+          /> 
+        </div>
+      )}
 
       {/* Selections */}
       <div className="selections">
