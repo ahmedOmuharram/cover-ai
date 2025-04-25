@@ -234,15 +234,15 @@ function App() {
                       <div className="space-y-6">
                         {/* Tone Selection Setting */}
                         <div className="flex items-center space-x-4">
-                          <Label htmlFor="tone-select" className="w-32 text-right flex-shrink-0">
+                          <Label htmlFor="tone-select" className="flex-shrink-0">
                             Generation Tone
                           </Label>
-                          <div className="ml-auto">
+                          <div className="flex-grow">
                             <Select
                               value={tone}
                               onValueChange={(value: ToneSetting) => handleToneChange(value)}
                             >
-                              <SelectTrigger id="tone-select" className="w-[180px]">
+                              <SelectTrigger id="tone-select" className="w-full">
                                 <SelectValue placeholder="Select tone" />
                               </SelectTrigger>
                               <SelectContent>
@@ -256,7 +256,7 @@ function App() {
                         {/* Auto-copy Setting */}
                         <div className="flex items-center space-x-4">
                           <Label htmlFor="auto-copy" className="flex-grow">
-                            Auto-copy generated prompt to clipboard?
+                            Auto-copy prompt to clipboard?
                           </Label>
                           <div className="ml-auto flex items-center space-x-2">
                             <Checkbox
@@ -274,7 +274,7 @@ function App() {
                         {/* Auto-download Setting */}
                         <div className="flex items-center space-x-4">
                           <Label htmlFor="auto-download" className="flex-grow">
-                            Auto-download generated cover letter as PDF?
+                            Auto-download cover letter as PDF?
                           </Label>
                           <div className="ml-auto flex items-center space-x-2">
                             <Checkbox
@@ -292,23 +292,9 @@ function App() {
                       </div>
                       {/* Bottom actions: clear data & API key */}
                       <div className="space-y-6 pt-4 border-t">
-                        {/* Clear Database Setting - Restructured */}
-                        <div className="flex items-start space-x-4">
-                          <Label className="w-32 text-right flex-shrink-0 pt-1.5">
-                            Data Management
-                          </Label>
-                          <div className="flex flex-col items-end flex-grow">
-                            <Button variant="destructive" size="sm" onClick={handleClearDatabase}>
-                              Delete Uploaded Documents
-                            </Button>
-                            <span className="block text-xs text-muted-foreground italic mt-1">
-                              Deletes uploaded cover letters and resumes
-                            </span>
-                          </div>
-                        </div>
                         {/* Clear API Key Setting - Grouping button and text */}
                         <div className="flex items-start space-x-4">
-                          <Label className="w-32 text-right flex-shrink-0 pt-1.5">
+                          <Label className="pt-1.5 flex-shrink-0">
                             API Key
                           </Label>
                           <div className="flex flex-col items-end flex-grow">
@@ -327,9 +313,17 @@ function App() {
                             >
                               Clear Saved API Key
                             </Button>
-                            <span className="block text-xs text-muted-foreground italic mt-1">
-                              Removes your stored OpenAI API key
-                            </span>
+                          </div>
+                        </div>
+                        {/* Clear Database Setting - Restructured */}
+                        <div className="flex items-start space-x-4">
+                          <Label className="pt-1.5 flex-shrink-0">
+                            Manage Files
+                          </Label>
+                          <div className="flex flex-col items-end flex-grow">
+                            <Button variant="destructive" size="sm" onClick={handleClearDatabase}>
+                              Delete All Documents
+                            </Button>
                           </div>
                         </div>
                       </div>

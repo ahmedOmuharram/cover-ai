@@ -400,7 +400,7 @@ TODO: Add instructions here.`;
             </div>
              {/* Resume Select */}
              <div className="space-y-1.5">
-               <Label htmlFor="resume-select">Base Resume</Label>
+               <Label htmlFor="resume-select">Resume</Label>
               <Select
                 value={selectedResumeId}
                 onValueChange={setSelectedResumeId}

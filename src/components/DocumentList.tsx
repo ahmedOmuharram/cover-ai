@@ -75,7 +75,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
     return (
       <div 
         key={doc.id} 
-        className="flex items-center justify-between space-x-4 p-2 rounded-md hover:bg-accent/50"
+        className="flex items-center justify-between space-x-4 p-2 rounded-md bg-[#FAF9F8] hover:bg-[#F2F0EF]"
       >
         <div className="flex items-center space-x-3 flex-grow min-w-0"> {/* Allow text to truncate */} 
           <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -130,7 +130,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                   <Button 
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 hover:bg-gray-200"
                     onClick={() => handleRenameClick(doc.id, doc.name, type)}
                   >
                     <Pencil className="h-4 w-4" />
@@ -143,7 +143,7 @@ const DocumentList: React.FC<DocumentListProps> = ({
                   <Button 
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    className="h-8 w-8 hover:bg-gray-200 text-destructive hover:text-destructive"
                     onClick={() => onDelete(doc.id, type)}
                   >
                     <Trash2 className="h-4 w-4" />
