@@ -93,9 +93,8 @@ const DocumentList: React.FC<DocumentListProps> = ({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button 
-                      variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-green-600 hover:text-green-700"
+                      className="h-8 w-8 bg-[#245F73] hover:bg-[#1d4a5b] text-white"
                       onClick={() => handleRenameSubmit(doc.id, type)}
                       disabled={!newName.trim()}
                     >

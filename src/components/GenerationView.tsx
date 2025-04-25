@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Lucide Icons
-import { Wand2, Loader2, AlertTriangle, ClipboardCopy, Check, KeyRound, Save, Sparkles, Download } from 'lucide-react';
+import { Wand2, Loader2, AlertTriangle, ClipboardCopy, Check, KeyRound, Save, Sparkles, Download, Pencil, Trash2, X } from 'lucide-react';
 
 interface DocumentInfo {
   id: number;
@@ -45,6 +45,8 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
   const [apiKeyError, setApiKeyError] = useState<string>('');
   const [autoCopy, setAutoCopy] = useState<boolean>(false); // Needed for manual prompt auto-copy
   const [additionalContext, setAdditionalContext] = useState<string>(''); // State for additional context
+  const [isEditingApiKey, setIsEditingApiKey] = useState<boolean>(false); // State for editing API key
+  const [originalApiKey, setOriginalApiKey] = useState<string>(''); // Store key before editing
 
   // Loading/Error States
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
@@ -183,6 +185,8 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
           setApiKeyError('Failed to save API key.');
         } else {
           setApiKeyError('');
+          setOriginalApiKey(apiKey);
+          setIsEditingApiKey(false);
           showToastNotification('API Key saved successfully!');
         }
       });
@@ -532,38 +536,128 @@ TODO: Add instructions here.`;
 
              {/* Automatic Generation Tab */}
             <TabsContent value="automatic" className="mt-4 space-y-4">
-                {/* API Key Section */}
+                {/* API Key Section - Updated Logic */}
                  <div className="space-y-2">
                    <Label htmlFor="api-key-input" className="text-base font-medium">OpenAI API Key</Label>
-                   <div className="flex items-center space-x-2">
-                     <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                     <Input
-                       id="api-key"
-                       type="password"
-                       placeholder="Enter your OpenAI API Key (sk-...)"
-                       value={apiKey}
-                       onChange={(e) => handleApiKeyChange(e.target.value)}
-                       className={cn("flex-grow", apiKeyError && "border-destructive", "bg-white")}
-                       disabled={isGeneratingAutomatic}
-                     />
-                     <Button
-                       onClick={handleSaveApiKey}
-                       size="sm"
-                       disabled={!apiKey || !!apiKeyError}
-                       className="bg-[#733E24] text-white hover:bg-[#5e311f] disabled:bg-gray-400 disabled:text-gray-800"
-                     >
-                       <Save className="mr-2 h-4 w-4" /> Save Key
-                     </Button>
-                   </div>
-                    {apiKeyError && (
+                   
+                   {/* Conditional Rendering based on apiKey existence and editing state */}                  
+                   {apiKey && validateApiKey(apiKey) && !isEditingApiKey ? (
+                     // Display Mode: Show masked key + Edit/Delete buttons
+                     <div className="flex items-center space-x-2">
+                       <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                       <span className="flex-grow p-2 border rounded-md bg-muted text-muted-foreground text-sm font-mono">
+                          ••••••••sk-{apiKey.slice(-3)}
+                       </span>
+                       <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => { 
+                                setOriginalApiKey(apiKey);
+                                setIsEditingApiKey(true); 
+                              }} className="h-9 w-9">
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Edit Key</p></TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-9 w-9 text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  if (window.confirm('Are you sure you want to delete your saved API key?')) {
+                                    chrome.storage.local.remove('openaiApiKey', () => {
+                                      if (chrome.runtime.lastError) {
+                                        console.error('Error deleting API key:', chrome.runtime.lastError);
+                                        setApiKeyError('Failed to delete API key.');
+                                      } else {
+                                        setApiKey('');
+                                        setApiKeyError('');
+                                        setIsEditingApiKey(false);
+                                        showToastNotification('API Key deleted successfully!');
+                                      }
+                                    });
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Delete Key</p></TooltipContent>
+                          </Tooltip>
+                       </TooltipProvider>
+                     </div>
+                   ) : (
+                     // Edit or Initial Input Mode
+                     <div className="flex items-center space-x-2">
+                       <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                       <Input
+                         id="api-key"
+                         type="password"
+                         placeholder="Enter your OpenAI API Key (sk-...)"
+                         value={apiKey}
+                         onChange={(e) => handleApiKeyChange(e.target.value)}
+                         className={cn("flex-grow", apiKeyError && "border-destructive", "bg-white")}
+                         disabled={isGeneratingAutomatic} // Keep disabled during generation
+                       />
+                       {isEditingApiKey ? (
+                         // Save/Cancel buttons during edit
+                         <>
+                           <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                 <Button 
+                                   onClick={handleSaveApiKey} 
+                                   size="icon" 
+                                   className="h-8 w-8 bg-[#245F73] hover:bg-[#1d4a5b] text-white" 
+                                   disabled={!apiKey || !!apiKeyError || isGeneratingAutomatic}
+                                 >
+                                   <Check className="h-4 w-4" />
+                                 </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>Save Changes</p></TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => { 
+                                  setApiKey(originalApiKey);
+                                  setApiKeyError(''); 
+                                  setIsEditingApiKey(false); 
+                                }} className="h-9 w-9">
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>Cancel</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                         </>
+                       ) : (
+                         // Original Save button for initial input
+                         <Button 
+                           onClick={handleSaveApiKey} 
+                           size="sm" 
+                           disabled={!apiKey || !!apiKeyError || isGeneratingAutomatic}
+                           className="bg-[#733E24] text-white hover:bg-[#5e311f] disabled:bg-gray-400 disabled:text-gray-600"
+                         >
+                           <Save className="mr-2 h-4 w-4" /> Save Key
+                         </Button>
+                       )}
+                     </div>
+                   )}
+
+                    {/* API Key Error Display (Moved slightly down for clarity) */}                   
+                    {(apiKeyError && (!apiKey || isEditingApiKey)) && (
                      <Alert variant="destructive" className="mt-2">
                        <AlertTriangle className="h-4 w-4" />
                        <AlertTitle>API Key Error</AlertTitle>
                        <AlertDescription>{apiKeyError}</AlertDescription>
                      </Alert>
                    )}
-                   {!apiKeyError && apiKey && validateApiKey(apiKey) && (
-                     <p className="text-xs text-muted-foreground mt-1">API key appears valid!</p>
+                   {/* Valid Key Hint (Only show when displaying saved key) */}                   
+                   {apiKey && validateApiKey(apiKey) && !isEditingApiKey && (
+                     <p className="text-xs text-muted-foreground mt-1">API key saved and appears valid.</p>
                    )}
                  </div>
 
