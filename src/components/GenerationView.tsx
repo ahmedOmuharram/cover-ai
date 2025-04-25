@@ -494,7 +494,7 @@ TODO: Add instructions here.`;
                    <Button
                      onClick={handleGeneratePrompt}
                      disabled={isGeneratingPrompt || !selectedCoverLetterId || !selectedResumeId}
-                     className="w-full sm:w-auto"
+                     className="w-full"
                    >
                      {isGeneratingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                      Generate Prompt
@@ -571,7 +571,7 @@ TODO: Add instructions here.`;
                    <Button
                      onClick={handleGenerateAutomatic}
                      disabled={isGeneratingAutomatic || !apiKey || !validateApiKey(apiKey) || !selectedCoverLetterId || !selectedResumeId}
-                     className="w-full sm:w-auto"
+                     className="w-full"
                    >
                      {isGeneratingAutomatic ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                      Generate Cover Letter
