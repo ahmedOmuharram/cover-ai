@@ -2,22 +2,36 @@
 
 // Function to scrape job description from LinkedIn page
 function scrapeJobDescription() {
-  // TODO: Implement the actual scraping logic here
-  // return 'PLACEHOLDER';
+  // List of selectors where job descriptions are usually found
   const selectors = [
-    'div.jobs-description__content',
-    'div.show-more-less-html__markup',
-    'div.description__text', // fallback for other job sites
-    '[data-test-description-section]' // some platforms use data-* attributes
+    'div.jobs-description__content',                  // LinkedIn specific
+    'div.show-more-less-html__markup',                 // LinkedIn expandable section
+    'div.description__text',                           // Fallback for other job platforms
+    '[data-test-description-section]',                 // Generic attribute
+    'section[class*="job-description"]',               // Some sites use job-description in section
+    'div[class*="description"]',                       // General description fallback
   ];
 
   for (const selector of selectors) {
-    const el = document.querySelector(selector);
-    if (el) return el.innerText.trim();
+    const element = document.querySelector(selector);
+    if (element && element.innerText.trim().length > 50) {  // Avoid super tiny false positives
+      console.log(`✅ Scraped job description using selector: ${selector}`);
+      return element.innerText.trim();
+    }
   }
 
+  // Try to scrape based on visible <article> tag if no selectors match
+  const articleElement = document.querySelector('article');
+  if (articleElement && articleElement.innerText.trim().length > 100) {
+    console.log('✅ Scraped job description from <article> element.');
+    return articleElement.innerText.trim();
+  }
+
+  // Final fallback
+  console.warn('⚠️ Could not find a job description on this page.');
   return '⚠️ Could not find job description on this page.';
 }
+
 
 let hasScraped = false;
 
@@ -88,3 +102,4 @@ observer.observe(document.body, {
 setTimeout(() => {
   observer.disconnect();
 }, 10000); 
+
