@@ -51,6 +51,7 @@ function App() {
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]); // Add state for history
   const [useCustomDefaultFilename, setUseCustomDefaultFilename] = useState<boolean>(false); // State for checkbox
   const [customDefaultFilename, setCustomDefaultFilename] = useState<string>(''); // State for saved filename
+  const [maxWords, setMaxWords] = useState<number>(270); // Update default state to 270
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -71,7 +72,8 @@ function App() {
         'useAdditionalContext', 
         'selectedFont', 
         'useCustomDefaultFilename', 
-        'customDefaultFilename' // Load new settings
+        'customDefaultFilename', // Load new settings
+        'maxWords' // Load max words setting
       ], (result) => {
         if (result.tone) {
            // Validate loaded tone against defined types
@@ -121,6 +123,20 @@ function App() {
         const loadedFilename = result.customDefaultFilename || '';
         setCustomDefaultFilename(loadedFilename); 
         console.log('Loaded custom default filename setting:', !!result.useCustomDefaultFilename, 'Name:', loadedFilename );
+
+        // Load max words setting
+        const loadedMaxWords = parseInt(result.maxWords, 10);
+        if (!isNaN(loadedMaxWords) && loadedMaxWords > 0) {
+          setMaxWords(loadedMaxWords);
+          console.log('Loaded max words setting:', loadedMaxWords);
+        } else {
+          setMaxWords(270); // Update default fallback to 270
+          console.log('No valid max words setting found, defaulting to 270.');
+          // Optionally save default back if not found
+          if (result.maxWords === undefined) {
+            chrome.storage.local.set({ maxWords: 270 }); // Update storage default to 270
+          }
+        }
       });
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -288,6 +304,14 @@ function App() {
     // The saving to chrome.storage.local is handled within SettingsView now
   };
 
+  // Handler for setting max words
+  const handleSetMaxWords = (words: number) => {
+    setMaxWords(words);
+    chrome.storage.local.set({ maxWords: words }, () => {
+      console.log('Max words saved:', words);
+    });
+  };
+
   return (
     <div className="App flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground rounded-lg shadow-md">
       {/* Loading State */}
@@ -339,6 +363,7 @@ function App() {
                     useAdditionalContext={useAdditionalContext} // Pass down additional context setting
                     useCustomDefaultFilename={useCustomDefaultFilename}
                     customDefaultFilename={customDefaultFilename}
+                    maxWords={maxWords} // Pass maxWords prop
                   />
                 }
 
@@ -369,6 +394,8 @@ function App() {
                     customDefaultFilename={customDefaultFilename}
                     setCustomDefaultFilename={handleSetCustomDefaultFilename} // Pass specific setter
                     handleClearDatabase={handleClearDatabase}
+                    maxWords={maxWords} // Pass maxWords state
+                    handleSetMaxWords={handleSetMaxWords} // Pass handler
                   />
                 }
               </div>

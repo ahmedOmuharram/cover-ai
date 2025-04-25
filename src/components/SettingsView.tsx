@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ToneSetting } from '../App'; // Assuming App.js/.ts exists
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,8 @@ interface SettingsViewProps {
   customDefaultFilename: string;
   setCustomDefaultFilename: (filename: string) => void; // To update App state
   handleClearDatabase: () => void;
+  maxWords: number;
+  handleSetMaxWords: (words: number) => void;
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({
@@ -44,11 +46,21 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   customDefaultFilename,
   setCustomDefaultFilename, // Receive the setter
   handleClearDatabase,
+  maxWords,
+  handleSetMaxWords,
 }) => {
 
   // State local to SettingsView for editing custom filename
   const [filenameInput, setFilenameInput] = useState<string>(customDefaultFilename);
   const [isEditingCustomFilename, setIsEditingCustomFilename] = useState<boolean>(false);
+
+  // Local state for the max words input display value
+  const [inputValue, setInputValue] = useState<string>(String(maxWords));
+
+  // Effect to sync local input value when the maxWords prop changes from parent
+  useEffect(() => {
+    setInputValue(String(maxWords));
+  }, [maxWords]);
 
   // --- Handlers local to SettingsView for Custom Default Filename ---
   const handleSaveCustomFilename = () => {
@@ -146,6 +158,47 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                                 <SelectItem value="helvetica">Helvetica</SelectItem> 
                               </SelectContent>
                             </Select>
+                          </div>
+                        </div>
+                        {/* Max Words Setting */}
+                        <div className="flex items-center space-x-4">
+                          <Label htmlFor="max-words-input" className="flex-shrink-0">
+                            Max Words (Approx.)
+                          </Label>
+                          <div className="flex-grow">
+                            <Input
+                              id="max-words-input"
+                              type="number"
+                              value={inputValue}
+                              min={1}
+                              step={10}
+                              onChange={(e) => {
+                                const currentVal = e.target.value;
+                                console.log('[onChange] Raw Value:', currentVal);
+                                setInputValue(currentVal);
+
+                                const numValue = parseInt(currentVal, 10);
+                                console.log('[onChange] Parsed Value:', numValue);
+                                if (!isNaN(numValue) && numValue >= 1) {
+                                  console.log('[onChange] Condition PASSED, calling handleSetMaxWords');
+                                  handleSetMaxWords(numValue);
+                                } else {
+                                  console.log('[onChange] Condition FAILED');
+                                }
+                              }}
+                              onBlur={(e) => {
+                                console.log('[onBlur] Input Value:', inputValue);
+                                const finalNumValue = parseInt(inputValue, 10);
+                                console.log('[onBlur] Parsed Value:', finalNumValue);
+                                if (inputValue === '' || isNaN(finalNumValue) || finalNumValue < 1) {
+                                  console.log('[onBlur] Condition PASSED, resetting to 270');
+                                  handleSetMaxWords(270);
+                                } else {
+                                  console.log('[onBlur] Condition FAILED, value is valid');
+                                }
+                              }}
+                              className="w-24"
+                            />
                           </div>
                         </div>
                         {/* Auto-copy Setting */}

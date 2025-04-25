@@ -36,13 +36,15 @@ interface GenerationViewProps {
   // Props for custom default filename
   useCustomDefaultFilename: boolean;
   customDefaultFilename: string;
+  maxWords: number; // Add maxWords prop
 }
 
 const GenerationView: React.FC<GenerationViewProps> = ({ 
   autoDownload, 
   useAdditionalContext, 
   useCustomDefaultFilename, // Destructure new props
-  customDefaultFilename 
+  customDefaultFilename, 
+  maxWords // Destructure maxWords
 }) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
@@ -93,10 +95,30 @@ const GenerationView: React.FC<GenerationViewProps> = ({
 
   const generatePDF = (text: string, font: 'times' | 'helvetica' = 'times') => {
     const doc = new jsPDF();
+    const fontSize = 12;
+    const lineSpacingFactor = 0.5; // Further reduced spacing factor
     doc.setFont(font, 'normal');
-    doc.setFontSize(12);
-    const lines = doc.splitTextToSize(text, doc.internal.pageSize.getWidth() - 40);
-    doc.text(lines, 20, 20);
+    doc.setFontSize(fontSize);
+
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20; // Define margin (e.g., 20 units)
+    const maxLineWidth = pageWidth - margin * 2;
+    const lineHeight = fontSize * lineSpacingFactor; // Calculate line height based on font size
+    const lines = doc.splitTextToSize(text, maxLineWidth);
+
+    let y = margin; // Initial y position
+
+    lines.forEach((line: string) => {
+      // Check if adding the next line exceeds the page height (considering bottom margin)
+      if (y + lineHeight > pageHeight - margin) {
+        doc.addPage();       // Add a new page
+        y = margin;         // Reset y to the top margin
+      }
+      doc.text(line, margin, y);
+      y += lineHeight;       // Move y down for the next line
+    });
+
     return doc;
   };
 
@@ -268,9 +290,9 @@ Instructions:
      • Match your top 2–3 achievements or skills (from the resume) to the key requirements.
      • Draw inspiration from the base cover letter, but rewrite in fresh language.
    - Closing: Reiterate enthusiasm, mention fit or context, and include a call to action.
-   - Signature: "Sincerely," or "Best regards," + candidate name.
+   - Signature: "Sincerely," or "Best regards," + [Your Name - Infer from Resume/CL if possible, otherwise use placeholder].
 3. Length & Format:
-   - ~300–400 words, 3–4 paragraphs.
+   - Strictly adhere to a maximum word count of ${maxWords}.
    - Do not repeat the job description verbatim; integrate its language naturally.
 4. Output only the final cover letter text, ready to copy/paste.
 
@@ -322,7 +344,16 @@ Please generate the complete cover letter now.
             ? ` Also consider the following additional context provided by the user: ${additionalContext}.`
             : '';
 
-        const systemPrompt = `You are an expert cover letter writer. Your task is to rewrite the provided cover letter based *only* on the provided resume and job description. Adapt the tone to be ${tone}. Keep the original cover letter's structure and key points where possible, but tailor the content specifically to the job description, highlighting relevant skills and experiences from the resume.${contextInstruction} Respond only with the rewritten cover letter text, nothing else.`;
+        const systemPrompt = `You are an expert cover letter writer. 
+        Your task is to rewrite the provided cover letter based *only* on the 
+        provided resume and job description.  Ensure the final letter adheres to 
+        strictly approximately ${maxWords}: don't change the word count by too much from that number
+        no matter how illogical or logical it is. To iterate: WORD COUNT MAXIMUM AND MINIMUM IS ${maxWords}.
+         Adapt the tone to be ${tone}. 
+        Keep the original cover letter's structure and key points where possible, 
+        but tailor the content specifically to the job description, highlighting 
+        relevant skills and experiences from the resume.${contextInstruction} 
+        Respond only with the rewritten cover letter text, nothing else. However, change the wording as needed to match the ${maxWords} word count.`;
 
         const userPrompt = `Job Description:
 ${jobDescriptionText || 'N/A'}
