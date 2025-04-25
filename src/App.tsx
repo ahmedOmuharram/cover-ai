@@ -416,6 +416,7 @@ function App() {
                             <Checkbox
                               id="auto-copy"
                               checked={autoCopy}
+                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
                               onCheckedChange={(checked) => {
                                 const isChecked = !!checked;
                                 setAutoCopy(isChecked);
@@ -434,6 +435,7 @@ function App() {
                             <Checkbox
                               id="auto-download"
                               checked={autoDownload}
+                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
                               onCheckedChange={(checked) => {
                                 const isChecked = !!checked;
                                 setAutoDownload(isChecked);
@@ -452,6 +454,7 @@ function App() {
                             <Checkbox
                               id="additional-context"
                               checked={useAdditionalContext}
+                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
                               onCheckedChange={(checked) => {
                                 const isChecked = !!checked;
                                 setUseAdditionalContext(isChecked);
@@ -471,6 +474,7 @@ function App() {
                             <Checkbox
                               id="custom-default-filename-checkbox"
                               checked={useCustomDefaultFilename}
+                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
                               onCheckedChange={(checked) => {
                                 const isChecked = !!checked;
                                 setUseCustomDefaultFilename(isChecked);
@@ -529,7 +533,7 @@ function App() {
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         {/* Disable save if input hasn't changed from original or is empty */}
-                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-primary text-primary-foreground" disabled={!filenameInput.trim() || filenameInput.trim() === customDefaultFilename}>
+                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-[#245F73] text-primary-foreground" disabled={!filenameInput.trim() || filenameInput.trim() === customDefaultFilename}>
                                           <Check className="h-4 w-4" />
                                         </Button>
                                       </TooltipTrigger>
@@ -550,7 +554,7 @@ function App() {
                                   <TooltipProvider delayDuration={100}>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-primary text-primary-foreground">
+                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-[#245F73] text-primary-foreground">
                                           <Check className="h-4 w-4" />
                                         </Button>
                                       </TooltipTrigger>

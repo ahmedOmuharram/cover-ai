@@ -58,6 +58,7 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   const [isEditingApiKey, setIsEditingApiKey] = useState<boolean>(false); // State for editing API key
   const [originalApiKey, setOriginalApiKey] = useState<string>(''); // Store key before editing
   const [pdfFilename, setPdfFilename] = useState<string>(''); // State for optional PDF filename
+  const [hasSavedApiKey, setHasSavedApiKey] = useState<boolean>(false); // Track if a valid key is actually saved
 
   // Loading/Error States
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
@@ -121,8 +122,16 @@ const GenerationView: React.FC<GenerationViewProps> = ({
           if (localResult.openaiApiKey) {
             const loadedKey = localResult.openaiApiKey;
             setApiKey(loadedKey);
-            if (!validateApiKey(loadedKey)) setApiKeyError("Warning: Saved API key format seems invalid.");
-            else setApiKeyError('');
+            if (!validateApiKey(loadedKey)) {
+               setApiKeyError("Warning: Saved API key format seems invalid.");
+               setHasSavedApiKey(false); // Treat invalid saved key as not saved
+            } else {
+               setApiKeyError('');
+               setOriginalApiKey(loadedKey); // Store originally loaded valid key
+               setHasSavedApiKey(true); // Valid key loaded from storage
+            }
+          } else {
+            setHasSavedApiKey(false); // No key found in storage
           }
           if (localResult.tone) {
              const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
@@ -184,8 +193,12 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   // --- Event Handlers (To be fully implemented) ---
   const handleApiKeyChange = (value: string) => {
     setApiKey(value);
-    if (value && !validateApiKey(value)) setApiKeyError("Invalid OpenAI API key format.");
-    else setApiKeyError('');
+    // Only show error message, don't trigger saves or state changes based on format
+    if (value && !validateApiKey(value)) {
+      setApiKeyError("Invalid OpenAI API key format (should start with sk-).");
+    } else {
+      setApiKeyError('');
+    }
   };
 
   const handleSaveApiKey = () => {
@@ -198,6 +211,7 @@ const GenerationView: React.FC<GenerationViewProps> = ({
           setApiKeyError('');
           setOriginalApiKey(apiKey);
           setIsEditingApiKey(false);
+          setHasSavedApiKey(true);
           showToastNotification('API Key saved successfully!');
         }
       });
@@ -604,7 +618,8 @@ ${resumeContent}`;
                    <Label htmlFor="api-key-input" className="text-base font-medium">OpenAI API Key</Label>
                    
                    {/* Conditional Rendering based on apiKey existence and editing state */}                  
-                   {apiKey && validateApiKey(apiKey) && !isEditingApiKey ? (
+                   {/* Show display mode ONLY if a valid key is saved AND we are not editing */}
+                   {hasSavedApiKey && !isEditingApiKey ? (
                      // Display Mode: Show masked key + Edit/Delete buttons
                      <div className="flex items-center space-x-2">
                        <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
@@ -638,7 +653,8 @@ ${resumeContent}`;
                                       } else {
                                         setApiKey('');
                                         setApiKeyError('');
-                                        setIsEditingApiKey(false);
+                                        setIsEditingApiKey(false); // Ensure we exit edit mode
+                                        setHasSavedApiKey(false); // Mark that no valid key is saved anymore
                                         showToastNotification('API Key deleted successfully!');
                                       }
                                     });
@@ -701,6 +717,7 @@ ${resumeContent}`;
                          <Button 
                            onClick={handleSaveApiKey} 
                            size="sm" 
+                           // Disable save if input is empty OR if it's invalid format
                            disabled={!apiKey || !!apiKeyError || isGeneratingAutomatic}
                            className="bg-[#733E24] text-white hover:bg-[#5e311f] disabled:bg-gray-400 disabled:text-gray-600"
                          >
