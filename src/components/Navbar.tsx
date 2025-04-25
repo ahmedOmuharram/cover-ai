@@ -1,9 +1,9 @@
 import React from 'react';
 import { cn } from "@/lib/utils"; // Import cn utility
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FileText, Bot, FolderArchive, Cog } from 'lucide-react'; // Import icons
+import { FileText, Bot, FolderArchive, Cog, History } from 'lucide-react'; // Import icons
 
-export type ActiveView = 'upload' | 'view' | 'settings' | 'generate' | 'automatic';
+export type ActiveView = 'upload' | 'view' | 'settings' | 'generate' | 'automatic' | 'history';
 
 interface NavbarProps {
   activeView: ActiveView;
@@ -68,6 +68,28 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onNavClick }) => {
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p>My Documents</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* History Button */} 
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className={cn(
+                baseButtonClass, 
+                activeView === 'history' ? activeButtonClass : inactiveButtonClass
+              )}
+              onClick={() => onNavClick('history')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onNavClick('history')}
+              aria-label="History"
+            >
+              <History className="h-5 w-5" /> {/* Icon */} 
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>History</p>
           </TooltipContent>
         </Tooltip>
 
