@@ -5,6 +5,7 @@ import UploadSection from "./components/UploadSection";
 import DocumentList from "./components/DocumentList";
 import GenerationView from "./components/GenerationView";
 import HistoryView from "./components/HistoryView";
+import SettingsView from "./components/SettingsView";
 import {
   addCoverLetter,
   getAllCoverLetters,
@@ -50,8 +51,6 @@ function App() {
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]); // Add state for history
   const [useCustomDefaultFilename, setUseCustomDefaultFilename] = useState<boolean>(false); // State for checkbox
   const [customDefaultFilename, setCustomDefaultFilename] = useState<string>(''); // State for saved filename
-  const [filenameInput, setFilenameInput] = useState<string>(''); // Consolidated input state
-  const [isEditingCustomFilename, setIsEditingCustomFilename] = useState<boolean>(false); // State for edit mode
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -121,7 +120,6 @@ function App() {
         setUseCustomDefaultFilename(!!result.useCustomDefaultFilename);
         const loadedFilename = result.customDefaultFilename || '';
         setCustomDefaultFilename(loadedFilename); 
-        setFilenameInput(loadedFilename); // Initialize input state
         console.log('Loaded custom default filename setting:', !!result.useCustomDefaultFilename, 'Name:', loadedFilename );
       });
     } catch (error) {
@@ -262,32 +260,33 @@ function App() {
     }
   };
 
-  // --- Handlers for Custom Default Filename ---
-  const handleSaveCustomFilename = () => {
-    const finalName = filenameInput.trim(); // Save from the input state
-    setCustomDefaultFilename(finalName);
-    chrome.storage.local.set({ customDefaultFilename: finalName }, () => {
-      console.log('Custom default filename saved:', finalName);
-      setIsEditingCustomFilename(false);
+  // --- Handlers for simple boolean settings with storage update ---
+  const createSettingHandler = (setter: React.Dispatch<React.SetStateAction<boolean>>, storageKey: string) => {
+    return (enabled: boolean) => {
+      setter(enabled);
+      chrome.storage.local.set({ [storageKey]: enabled });
+      console.log(`${storageKey} setting saved:`, enabled);
+    };
+  };
+
+  const handleSetAutoCopy = createSettingHandler(setAutoCopy, 'autoCopy');
+  const handleSetAutoDownload = createSettingHandler(setAutoDownload, 'autoDownload');
+  const handleSetUseAdditionalContext = createSettingHandler(setUseAdditionalContext, 'useAdditionalContext');
+  const handleSetUseCustomDefaultFilename = createSettingHandler(setUseCustomDefaultFilename, 'useCustomDefaultFilename');
+
+  // Handler for font selection
+  const handleSetSelectedFont = (font: 'times' | 'helvetica') => {
+    setSelectedFont(font);
+    chrome.storage.local.set({ selectedFont: font }, () => {
+      console.log('PDF font saved:', font);
     });
   };
 
-  const handleCancelCustomFilenameEdit = () => {
-    setFilenameInput(customDefaultFilename); // Reset input state to saved value
-    setIsEditingCustomFilename(false);
+  // Handler for setting custom default filename (passed to SettingsView)
+  const handleSetCustomDefaultFilename = (filename: string) => {
+    setCustomDefaultFilename(filename);
+    // The saving to chrome.storage.local is handled within SettingsView now
   };
-
-  const handleClearCustomFilename = () => {
-     if (window.confirm('Are you sure you want to clear the custom default filename?')) {
-        setCustomDefaultFilename('');
-        setFilenameInput(''); // Clear input state
-        setIsEditingCustomFilename(false); // Exit edit mode if active
-        chrome.storage.local.remove('customDefaultFilename', () => {
-           console.log('Custom default filename cleared.');
-        });
-     }
-  };
-  // ------------------------------------------
 
   return (
     <div className="App flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground rounded-lg shadow-md">
@@ -352,264 +351,25 @@ function App() {
                   />
                 }
 
-                {/* Settings Page - Apply Tailwind classes */}
+                {/* Settings Page - Now using SettingsView component */}
                 {activeView === 'settings' &&
-                  <Card className="h-full gap-3"> 
-                    <CardHeader>
-                      <CardTitle className="text-2xl tracking-tight mb-0">Settings</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col justify-between h-full p-5 pt-0 mt-0">
-                      {/* Top settings: tone, auto-copy, auto-download */}
-                      <div className="space-y-6">
-                        {/* Tone Selection Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="tone-select" className="flex-shrink-0">
-                            Generation Tone
-                          </Label>
-                          <div className="flex-grow">
-                            <Select
-                              value={tone}
-                              onValueChange={(value: ToneSetting) => handleToneChange(value)}
-                            >
-                              <SelectTrigger id="tone-select" className="w-full">
-                                <SelectValue placeholder="Select tone" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="professional">Professional</SelectItem>
-                                <SelectItem value="friendly">Friendly</SelectItem>
-                                <SelectItem value="casual">Casual</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        {/* PDF Font Selection Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="font-select" className="flex-shrink-0">
-                            Font (PDFs)
-                          </Label>
-                          <div className="flex-grow">
-                            <Select
-                              value={selectedFont}
-                              onValueChange={(value: 'times' | 'helvetica') => {
-                                setSelectedFont(value);
-                                chrome.storage.local.set({ selectedFont: value }, () => {
-                                  console.log('PDF font saved:', value);
-                                });
-                              }}
-                            >
-                              <SelectTrigger id="font-select" className="w-full">
-                                <SelectValue placeholder="Select font" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="times">Times New Roman</SelectItem>
-                                <SelectItem value="helvetica">Helvetica</SelectItem> 
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        {/* Auto-copy Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="auto-copy" className="flex-grow">
-                            Auto-copy prompt to clipboard?
-                          </Label>
-                          <div className="ml-auto flex items-center space-x-2">
-                            <Checkbox
-                              id="auto-copy"
-                              checked={autoCopy}
-                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
-                              onCheckedChange={(checked) => {
-                                const isChecked = !!checked;
-                                setAutoCopy(isChecked);
-                                chrome.storage.local.set({ autoCopy: isChecked });
-                                console.log('Auto-copy setting saved:', isChecked);
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {/* Auto-download Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="auto-download" className="flex-grow">
-                            Auto-download cover letter as PDF?
-                          </Label>
-                          <div className="ml-auto flex items-center space-x-2">
-                            <Checkbox
-                              id="auto-download"
-                              checked={autoDownload}
-                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
-                              onCheckedChange={(checked) => {
-                                const isChecked = !!checked;
-                                setAutoDownload(isChecked);
-                                chrome.storage.local.set({ autoDownload: isChecked });
-                                console.log('Auto-download setting saved:', isChecked);
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {/* Use Additional Context Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="additional-context" className="flex-grow">
-                            Use additional context for generation?
-                          </Label>
-                          <div className="ml-auto flex items-center space-x-2">
-                            <Checkbox
-                              id="additional-context"
-                              checked={useAdditionalContext}
-                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
-                              onCheckedChange={(checked) => {
-                                const isChecked = !!checked;
-                                setUseAdditionalContext(isChecked);
-                                chrome.storage.local.set({ useAdditionalContext: isChecked });
-                                console.log('Use additional context setting saved:', isChecked);
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {/* --- Custom Default Filename Setting (Moved into main block) --- */}
-                      {/* Main Checkbox Row */}
-                      <div className="flex items-center space-x-4">
-                        <Label htmlFor="custom-default-filename-checkbox" className="flex-grow">
-                          Use Custom Default Filename for PDF Downloads?
-                        </Label>
-                        <div className="ml-auto flex items-center space-x-2">
-                            <Checkbox
-                              id="custom-default-filename-checkbox"
-                              checked={useCustomDefaultFilename}
-                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
-                              onCheckedChange={(checked) => {
-                                const isChecked = !!checked;
-                                setUseCustomDefaultFilename(isChecked);
-                                chrome.storage.local.set({ useCustomDefaultFilename: isChecked });
-                                console.log('Use custom default filename setting saved:', isChecked);
-                              }}
-                            />
-                        </div>
-                      </div>
-
-                      {/* Conditional Input/Edit Section - Rendered below if checkbox is checked */} 
-                      {useCustomDefaultFilename && (
-                        <div className="pl-7 mt-3 space-y-2"> {/* Add margin-top (mt-3) here */} 
-                          {customDefaultFilename && !isEditingCustomFilename ? (
-                            <div className="flex items-center space-x-2">
-                              <Input
-                                readOnly
-                                value={customDefaultFilename}
-                                className="flex-grow h-8 text-sm bg-muted border-muted"
-                              />
-                              <TooltipProvider delayDuration={100}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" onClick={() => { 
-                                      setFilenameInput(customDefaultFilename); // Ensure input state matches before edit
-                                      setIsEditingCustomFilename(true); 
-                                    }} className="h-8 w-8">
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p>Edit</p></TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={handleClearCustomFilename}>
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p>Clear</p></TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          ) : (
-                            // Input/Edit Mode
-                            <div className="flex items-center space-x-2">
-                              <Input
-                                id="custom-default-filename-input"
-                                type="text"
-                                placeholder="default: cover_letter[timestamp]"
-                                value={filenameInput} // Always use filenameInput state
-                                onChange={(e) => setFilenameInput(e.target.value)} // Always update filenameInput state
-                                className="flex-grow h-8 text-sm bg-background"
-                              />
-                              {isEditingCustomFilename ? (
-                                 <TooltipProvider delayDuration={100}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        {/* Disable save if input hasn't changed from original or is empty */}
-                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-[#245F73] text-primary-foreground" disabled={!filenameInput.trim() || filenameInput.trim() === customDefaultFilename}>
-                                          <Check className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent><p>Save</p></TooltipContent>
-                                    </Tooltip>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={handleCancelCustomFilenameEdit} className="h-8 w-8">
-                                          <X className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent><p>Cancel</p></TooltipContent>
-                                    </Tooltip>
-                                 </TooltipProvider>
-                              ) : (
-                                // Show save button only if there's text and it's not the edit mode
-                                filenameInput.trim() && (
-                                  <TooltipProvider delayDuration={100}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-[#245F73] text-primary-foreground">
-                                          <Check className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent><p>Save</p></TooltipContent>
-                                    </Tooltip>
-                                   </TooltipProvider>
-                                )
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {/* --- End Custom Default Filename Setting --- */}
-
-                      </div>
-
-                      {/* Bottom actions: clear data & API key */}
-                      <div className="space-y-6 pt-4 border-t">
-                        {/* Clear API Key Setting - Grouping button and text */}
-                        <div className="flex items-start space-x-4">
-                          <Label className="pt-1.5 flex-shrink-0">
-                            API Key
-                          </Label>
-                          <div className="flex flex-col items-end flex-grow">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                chrome.storage.local.remove(['openaiApiKey'], () => {
-                                  if (chrome.runtime.lastError) {
-                                    console.error('Error clearing API key:', chrome.runtime.lastError);
-                                  } else {
-                                    console.log('API key cleared successfully');
-                                  }
-                                });
-                              }}
-                            >
-                              Clear Saved API Key
-                            </Button>
-                          </div>
-                        </div>
-                        {/* Clear Database Setting - Restructured */}
-                        <div className="flex items-start space-x-4">
-                          <Label className="pt-1.5 flex-shrink-0">
-                            Manage Files
-                          </Label>
-                          <div className="flex flex-col items-end flex-grow">
-                            <Button variant="destructive" size="sm" onClick={handleClearDatabase}>
-                              Delete All Documents
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <SettingsView 
+                    tone={tone}
+                    handleToneChange={handleToneChange}
+                    selectedFont={selectedFont}
+                    setSelectedFont={handleSetSelectedFont} // Pass wrapped handler
+                    autoCopy={autoCopy}
+                    setAutoCopy={handleSetAutoCopy} // Pass wrapped handler
+                    autoDownload={autoDownload}
+                    setAutoDownload={handleSetAutoDownload} // Pass wrapped handler
+                    useAdditionalContext={useAdditionalContext}
+                    setUseAdditionalContext={handleSetUseAdditionalContext} // Pass wrapped handler
+                    useCustomDefaultFilename={useCustomDefaultFilename}
+                    setUseCustomDefaultFilename={handleSetUseCustomDefaultFilename} // Pass wrapped handler
+                    customDefaultFilename={customDefaultFilename}
+                    setCustomDefaultFilename={handleSetCustomDefaultFilename} // Pass specific setter
+                    handleClearDatabase={handleClearDatabase}
+                  />
                 }
               </div>
             </>
