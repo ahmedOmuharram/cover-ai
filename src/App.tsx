@@ -37,6 +37,8 @@ function App() {
   const [tone, setTone] = useState<ToneSetting>('professional'); // Add state for tone
   const [autoCopy, setAutoCopy] = useState<boolean>(false); // Add state for auto-copy setting
   const [autoDownload, setAutoDownload] = useState<boolean>(false); // Add state for auto-download setting
+  const [useAdditionalContext, setUseAdditionalContext] = useState<boolean>(false); // Add state for additional context setting
+  const [selectedFont, setSelectedFont] = useState<'times' | 'helvetica'>('times'); // Add state for PDF font
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -50,7 +52,7 @@ function App() {
       setResumes(resumes.map((r: { id: number; name: string; }) => ({ id: r.id, name: r.name })));
 
       // Load saved tone and settings
-      chrome.storage.local.get(['tone', 'autoCopy', 'autoDownload'], (result) => {
+      chrome.storage.local.get(['tone', 'autoCopy', 'autoDownload', 'useAdditionalContext', 'selectedFont'], (result) => {
         if (result.tone) {
            // Validate loaded tone against defined types
            const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
@@ -75,6 +77,24 @@ function App() {
         // Load auto-download setting
         setAutoDownload(!!result.autoDownload);
         console.log('Loaded auto-download setting:', !!result.autoDownload);
+
+        // Load additional context setting
+        setUseAdditionalContext(!!result.useAdditionalContext); // Default to false if not found
+        console.log('Loaded use additional context setting:', !!result.useAdditionalContext);
+
+        // Load selected font setting
+        const validFonts: Array<'times' | 'helvetica'> = ['times', 'helvetica'];
+        if (result.selectedFont && validFonts.includes(result.selectedFont)) {
+            setSelectedFont(result.selectedFont);
+            console.log('Loaded PDF font:', result.selectedFont);
+        } else {
+            setSelectedFont('times'); // Default if not found or invalid
+            console.log('No valid PDF font found in storage, defaulting to Times New Roman.');
+            // Optionally save the default back if it wasn't found
+            if (result.selectedFont === undefined) {
+                chrome.storage.local.set({ selectedFont: 'times' });
+            }
+        }
       });
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -220,6 +240,7 @@ function App() {
                 {activeView === 'generate' && 
                   <GenerationView 
                     autoDownload={autoDownload} // Pass down autoDownload prop
+                    useAdditionalContext={useAdditionalContext} // Pass down additional context setting
                   />
                 }
 
@@ -249,6 +270,31 @@ function App() {
                                 <SelectItem value="professional">Professional</SelectItem>
                                 <SelectItem value="friendly">Friendly</SelectItem>
                                 <SelectItem value="casual">Casual</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        {/* PDF Font Selection Setting */}
+                        <div className="flex items-center space-x-4">
+                          <Label htmlFor="font-select" className="flex-shrink-0">
+                            Font (PDFs)
+                          </Label>
+                          <div className="flex-grow">
+                            <Select
+                              value={selectedFont}
+                              onValueChange={(value: 'times' | 'helvetica') => {
+                                setSelectedFont(value);
+                                chrome.storage.local.set({ selectedFont: value }, () => {
+                                  console.log('PDF font saved:', value);
+                                });
+                              }}
+                            >
+                              <SelectTrigger id="font-select" className="w-full">
+                                <SelectValue placeholder="Select font" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="times">Times New Roman</SelectItem>
+                                <SelectItem value="helvetica">Helvetica</SelectItem> 
                               </SelectContent>
                             </Select>
                           </div>
@@ -285,6 +331,24 @@ function App() {
                                 setAutoDownload(isChecked);
                                 chrome.storage.local.set({ autoDownload: isChecked });
                                 console.log('Auto-download setting saved:', isChecked);
+                              }}
+                            />
+                          </div>
+                        </div>
+                        {/* Use Additional Context Setting */}
+                        <div className="flex items-center space-x-4">
+                          <Label htmlFor="additional-context" className="flex-grow">
+                            Use additional context for generation?
+                          </Label>
+                          <div className="ml-auto flex items-center space-x-2">
+                            <Checkbox
+                              id="additional-context"
+                              checked={useAdditionalContext}
+                              onCheckedChange={(checked) => {
+                                const isChecked = !!checked;
+                                setUseAdditionalContext(isChecked);
+                                chrome.storage.local.set({ useAdditionalContext: isChecked });
+                                console.log('Use additional context setting saved:', isChecked);
                               }}
                             />
                           </div>

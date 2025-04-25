@@ -31,9 +31,10 @@ interface DocumentInfo {
 
 interface GenerationViewProps {
   autoDownload: boolean; // Prop needed for automatic PDF download
+  useAdditionalContext: boolean; // Prop to control using additional context
 }
 
-const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
+const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload, useAdditionalContext }) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
   const [resumes, setResumes] = useState<DocumentInfo[]>([]);
@@ -79,9 +80,9 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
     return /^sk-/.test(key);
   };
 
-  const generatePDF = (text: string) => {
+  const generatePDF = (text: string, font: 'times' | 'helvetica' = 'times') => {
     const doc = new jsPDF();
-    doc.setFont('times', 'normal');
+    doc.setFont(font, 'normal');
     doc.setFontSize(12);
     const lines = doc.splitTextToSize(text, doc.internal.pageSize.getWidth() - 40);
     doc.text(lines, 20, 20);
@@ -214,21 +215,12 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
          if (coverLetterContent === null || resumeContent === null) {
             throw new Error("Could not retrieve content for selected documents.");
          }
-         const prompt = `Job Description:
-${jobDescriptionText || 'N/A'}
+         // Conditionally add additional context to the prompt
+         const contextSection = useAdditionalContext && additionalContext 
+            ? `\n\nAdditional Context:\n${additionalContext}`
+            : '\n\nAdditional Context: (Not Used)'; // Or omit this line entirely if preferred
 
-Tone: ${tone}
-
-Additional Context:
-${additionalContext || 'N/A'}
-
-Cover Letter:
-${coverLetterContent}
-
-Resume:
-${resumeContent}
-
-TODO: Add instructions here.`;
+         const prompt = `Job Description:\n${jobDescriptionText || 'N/A'}\n\nTone: ${tone}${contextSection}\n\nCover Letter:\n${coverLetterContent}\n\nResume:\n${resumeContent}\n\nTODO: Add instructions here.`;
          setManualPromptOutput(prompt.trim());
          if (autoCopy) await copyToClipboardManual(prompt.trim(), 'Automatically copied to clipboard');
      } catch (err: any) {
@@ -247,51 +239,47 @@ TODO: Add instructions here.`;
      console.log("Generate Automatic clicked");
      try {
         if (!apiKey || !validateApiKey(apiKey)) {
+            setApiKeyError("Valid OpenAI API key is required."); // Set specific API key error
             throw new Error("Valid OpenAI API key is required.");
         }
         if (!selectedCoverLetterId || !selectedResumeId) {
             throw new Error("Please select both a cover letter and a resume.");
         }
-        // ... (rest of API call logic) ...
-         const clId = parseInt(selectedCoverLetterId, 10);
-         const resumeId = parseInt(selectedResumeId, 10);
-         const [coverLetterContent, resumeContent] = await Promise.all([
-            getCoverLetterContent(clId),
-            getResumeContent(resumeId)
-         ]);
-          if (coverLetterContent === null || resumeContent === null) {
-            throw new Error("Could not retrieve content for selected documents.");
-         }
-         const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-         const systemPrompt = `You are an expert cover letter writer. You have access to the following information:
--      - The original cover letter: ${coverLetterContent}
--      - The user's resume: ${resumeContent}
--      - The job description: ${jobDescriptionText || 'N/A'}
--      - Additional Context: ${additionalContext || 'N/A'}
--      - The desired tone: ${tone}
--
--      Your task is to generate a concise, professional cover letter that:
--      1. Matches the job requirements
--      2. Highlights relevant experience from the resume
--      3. Maintains the style of the original cover letter
--      4. Uses the specified tone (${tone})
--      5. Is exactly 270 words or less
--      
--      Make sure to:
--      - Keep the same general structure as the original cover letter
--      - Use specific examples from the resume
--      - Address key requirements from the job description
--      - Maintain professional formatting
--      - Be concise and impactful
--      - Include all essential sections: header, date, salutation, body paragraphs, and closing
--      - Focus on quality over quantity
--      - Count words carefully to ensure the total is 270 or less`;
 
-         const completion = await openai.chat.completions.create({
+        const clId = parseInt(selectedCoverLetterId, 10);
+        const resumeId = parseInt(selectedResumeId, 10);
+        const [coverLetterContent, resumeContent] = await Promise.all([
+           getCoverLetterContent(clId),
+           getResumeContent(resumeId)
+        ]);
+
+        if (coverLetterContent === null || resumeContent === null) {
+           throw new Error("Could not retrieve content for selected documents.");
+        }
+
+        const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+
+        // Conditionally add additional context to the system prompt
+        const contextInstruction = useAdditionalContext && additionalContext
+            ? ` Also consider the following additional context provided by the user: ${additionalContext}.`
+            : '';
+
+        const systemPrompt = `You are an expert cover letter writer. Your task is to rewrite the provided cover letter based *only* on the provided resume and job description. Adapt the tone to be ${tone}. Keep the original cover letter's structure and key points where possible, but tailor the content specifically to the job description, highlighting relevant skills and experiences from the resume.${contextInstruction} Respond only with the rewritten cover letter text, nothing else.`;
+
+        const userPrompt = `Job Description:
+${jobDescriptionText || 'N/A'}
+
+Cover Letter:
+${coverLetterContent}
+
+Resume:
+${resumeContent}`;
+
+        const response = await openai.chat.completions.create({
              model: "gpt-4o", // Ensure model is specified
              messages: [ // Ensure messages are specified
                { role: "system", content: systemPrompt },
-               { role: "user", content: "Please generate a tailored cover letter based on the provided information." }
+               { role: "user", content: userPrompt }
              ],
              temperature: 0.7
          }).catch((error) => { // Refined error handling from AutomaticPage
@@ -307,11 +295,15 @@ TODO: Add instructions here.`;
              }
              throw new Error("An unexpected error occurred while contacting OpenAI.");
           });
-          const output = completion.choices[0]?.message?.content || '';
+          const output = response.choices[0]?.message?.content || '';
           setGeneratedCoverLetterOutput(output);
           if(autoDownload && output) {
-            const doc = generatePDF(output);
-            doc.save('cover_letter.pdf');
+            // Retrieve font setting before generating PDF
+            chrome.storage.local.get('selectedFont', (result) => {
+                const fontToUse: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
+                const doc = generatePDF(output, fontToUse); 
+                doc.save('cover_letter.pdf');
+            });
          }
 
      } catch (err: any) {
@@ -439,6 +431,7 @@ TODO: Add instructions here.`;
       </div>
 
        {/* Additional Context Textarea (Before Tabs) */}
+       {useAdditionalContext && (
        <div className="space-y-1.5">
          <Label htmlFor="additional-context">Additional Context (Optional)</Label>
          <Textarea
@@ -451,6 +444,7 @@ TODO: Add instructions here.`;
           disabled={isGeneratingPrompt || isGeneratingAutomatic}
          />
        </div>
+       )}
 
         <Tabs defaultValue="prompt" className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-white">
@@ -702,7 +696,13 @@ TODO: Add instructions here.`;
                                    <Button 
                                      variant="ghost" 
                                      size="icon" 
-                                     onClick={() => generatePDF(generatedCoverLetterOutput).save('cover_letter.pdf')}
+                                     onClick={() => {
+                                        // Retrieve font setting before generating PDF
+                                        chrome.storage.local.get('selectedFont', (result) => {
+                                            const fontToUse: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
+                                            generatePDF(generatedCoverLetterOutput, fontToUse).save('cover_letter.pdf');
+                                        });
+                                     }}
                                      className="h-8 w-8"
                                     >
                                      <Download className="h-4 w-4" />
