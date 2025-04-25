@@ -174,7 +174,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         {/* Max Words Setting */}
                         <div className="flex items-center space-x-4">
                           <Label htmlFor="max-words-input" className="flex-shrink-0 flex-grow">
-                            Max Words (Approx.)
+                            Word Count (Approx.)
                           </Label>
                           <div className="ml-auto">
                             <Input
