@@ -28,6 +28,8 @@ interface SettingsViewProps {
   handleClearDatabase: () => void;
   maxWords: number;
   handleSetMaxWords: (words: number) => void;
+  pdfFontSize: number;
+  handleSetPdfFontSize: (size: number) => void;
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({
@@ -48,6 +50,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   handleClearDatabase,
   maxWords,
   handleSetMaxWords,
+  pdfFontSize,
+  handleSetPdfFontSize,
 }) => {
 
   // State local to SettingsView for editing custom filename
@@ -56,11 +60,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({
 
   // Local state for the max words input display value
   const [inputValue, setInputValue] = useState<string>(String(maxWords));
+  // Local state for the font size input display value
+  const [fontSizeInputValue, setFontSizeInputValue] = useState<string>(String(pdfFontSize));
 
   // Effect to sync local input value when the maxWords prop changes from parent
   useEffect(() => {
     setInputValue(String(maxWords));
   }, [maxWords]);
+
+  // Effect to sync local font size input value when the pdfFontSize prop changes
+  useEffect(() => {
+    setFontSizeInputValue(String(pdfFontSize));
+  }, [pdfFontSize]);
 
   // --- Handlers local to SettingsView for Custom Default Filename ---
   const handleSaveCustomFilename = () => {
@@ -162,10 +173,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                         </div>
                         {/* Max Words Setting */}
                         <div className="flex items-center space-x-4">
-                          <Label htmlFor="max-words-input" className="flex-shrink-0">
+                          <Label htmlFor="max-words-input" className="flex-shrink-0 flex-grow">
                             Max Words (Approx.)
                           </Label>
-                          <div className="flex-grow">
+                          <div className="ml-auto">
                             <Input
                               id="max-words-input"
                               type="number"
@@ -198,6 +209,40 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                                 }
                               }}
                               className="w-24"
+                            />
+                          </div>
+                        </div>
+                        {/* Font Size Setting */}
+                        <div className="flex items-center space-x-4">
+                          <Label htmlFor="font-size-input" className="flex-shrink-0 flex-grow">
+                            PDF Font Size (pt)
+                          </Label>
+                          <div className="ml-auto">
+                            <Input
+                              id="font-size-input"
+                              type="number"
+                              value={fontSizeInputValue}
+                              min={1}
+                              step={1}
+                              onChange={(e) => {
+                                // Only update the local display value on change
+                                setFontSizeInputValue(e.target.value);
+                              }}
+                              onBlur={(e) => {
+                                const finalNumValue = parseInt(fontSizeInputValue, 10);
+                                // Validate on blur: check if empty, invalid, or below minimum
+                                if (fontSizeInputValue === '' || isNaN(finalNumValue) || finalNumValue < 1) { 
+                                  // If invalid, reset parent state AND local state to default (12)
+                                  handleSetPdfFontSize(12); 
+                                  setFontSizeInputValue('12'); // Directly set input value back
+                                } else {
+                                  // If valid, ensure parent state has the final valid number
+                                  handleSetPdfFontSize(finalNumValue);
+                                  // Optionally ensure local state matches exactly if parsing changed it (e.g., leading zeros)
+                                  setFontSizeInputValue(String(finalNumValue)); 
+                                }
+                              }}
+                              className="w-24 text-right"
                             />
                           </div>
                         </div>

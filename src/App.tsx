@@ -52,6 +52,7 @@ function App() {
   const [useCustomDefaultFilename, setUseCustomDefaultFilename] = useState<boolean>(false); // State for checkbox
   const [customDefaultFilename, setCustomDefaultFilename] = useState<string>(''); // State for saved filename
   const [maxWords, setMaxWords] = useState<number>(270); // Update default state to 270
+  const [pdfFontSize, setPdfFontSize] = useState<number>(12); // Add state for font size
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -73,7 +74,8 @@ function App() {
         'selectedFont', 
         'useCustomDefaultFilename', 
         'customDefaultFilename', // Load new settings
-        'maxWords' // Load max words setting
+        'maxWords', // Load max words setting
+        'pdfFontSize' // Load font size setting
       ], (result) => {
         if (result.tone) {
            // Validate loaded tone against defined types
@@ -136,6 +138,20 @@ function App() {
           if (result.maxWords === undefined) {
             chrome.storage.local.set({ maxWords: 270 }); // Update storage default to 270
           }
+        }
+
+        // Load PDF font size setting
+        const loadedFontSize = parseInt(result.pdfFontSize, 10);
+        if (!isNaN(loadedFontSize)) { // Example range validation
+           setPdfFontSize(loadedFontSize);
+           console.log('Loaded PDF font size setting:', loadedFontSize);
+        } else {
+           setPdfFontSize(12); // Default if not found or invalid
+           console.log('No valid PDF font size setting found, defaulting to 12.');
+           // Optionally save default back if not found
+           if (result.pdfFontSize === undefined) {
+             chrome.storage.local.set({ pdfFontSize: 12 });
+           }
         }
       });
     } catch (error) {
@@ -312,6 +328,14 @@ function App() {
     });
   };
 
+  // Handler for setting PDF font size
+  const handleSetPdfFontSize = (size: number) => {
+    setPdfFontSize(size);
+    chrome.storage.local.set({ pdfFontSize: size }, () => {
+      console.log('PDF font size saved:', size);
+    });
+  };
+
   return (
     <div className="App flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground rounded-lg shadow-md">
       {/* Loading State */}
@@ -364,6 +388,7 @@ function App() {
                     useCustomDefaultFilename={useCustomDefaultFilename}
                     customDefaultFilename={customDefaultFilename}
                     maxWords={maxWords} // Pass maxWords prop
+                    pdfFontSize={pdfFontSize} // Pass font size prop
                   />
                 }
 
@@ -373,6 +398,7 @@ function App() {
                     entries={historyEntries}
                     onClearHistory={handleClearHistory}
                     onDeleteEntry={handleDeleteHistoryEntry}
+                    pdfFontSize={pdfFontSize} // Pass font size prop
                   />
                 }
 
@@ -396,6 +422,8 @@ function App() {
                     handleClearDatabase={handleClearDatabase}
                     maxWords={maxWords} // Pass maxWords state
                     handleSetMaxWords={handleSetMaxWords} // Pass handler
+                    pdfFontSize={pdfFontSize} // Pass font size state
+                    handleSetPdfFontSize={handleSetPdfFontSize} // Pass handler
                   />
                 }
               </div>

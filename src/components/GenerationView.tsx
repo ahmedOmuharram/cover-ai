@@ -37,6 +37,7 @@ interface GenerationViewProps {
   useCustomDefaultFilename: boolean;
   customDefaultFilename: string;
   maxWords: number; // Add maxWords prop
+  pdfFontSize: number; // Add font size prop
 }
 
 const GenerationView: React.FC<GenerationViewProps> = ({ 
@@ -44,7 +45,8 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   useAdditionalContext, 
   useCustomDefaultFilename, // Destructure new props
   customDefaultFilename, 
-  maxWords // Destructure maxWords
+  maxWords,
+  pdfFontSize // Destructure font size
 }) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
@@ -95,7 +97,7 @@ const GenerationView: React.FC<GenerationViewProps> = ({
 
   const generatePDF = (text: string, font: 'times' | 'helvetica' = 'times') => {
     const doc = new jsPDF();
-    const fontSize = 12;
+    const fontSize = pdfFontSize; // Use prop for font size
     const lineSpacingFactor = 0.5; // Further reduced spacing factor
     doc.setFont(font, 'normal');
     doc.setFontSize(fontSize);

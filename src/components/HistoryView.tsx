@@ -11,13 +11,30 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Download, Trash2 } from 'lucide-react';
 
 // Define generatePDF function locally (or import if moved to shared utils)
-const generatePDF = (text: string, font: 'times' | 'helvetica' = 'times') => {
+const generatePDF = (text: string, font: 'times' | 'helvetica' = 'times', fontSize: number = 12) => {
   const doc = new jsPDF();
   doc.setFont(font, 'normal');
-  const fontSize = font === 'times' ? 12 : 11;
   doc.setFontSize(fontSize);
-  const lines = doc.splitTextToSize(text, doc.internal.pageSize.getWidth() - 40);
-  doc.text(lines, 20, 20);
+  const lineSpacingFactor = 0.45; // Use a standard factor here, or pass it as well if needed
+  const lineHeight = fontSize * lineSpacingFactor;
+
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 20;
+  const maxLineWidth = pageWidth - margin * 2;
+  const lines = doc.splitTextToSize(text, maxLineWidth);
+
+  let y = margin;
+
+  lines.forEach((line: string) => {
+    if (y + lineHeight > pageHeight - margin) {
+      doc.addPage();
+      y = margin;
+    }
+    doc.text(line, margin, y);
+    y += lineHeight;
+  });
+
   return doc;
 };
 
@@ -25,9 +42,15 @@ interface HistoryViewProps {
   entries: HistoryEntry[];
   onClearHistory: () => void;
   onDeleteEntry: (id: number) => void;
+  pdfFontSize: number; // Add font size prop
 }
 
-const HistoryView: React.FC<HistoryViewProps> = ({ entries, onClearHistory, onDeleteEntry }) => {
+const HistoryView: React.FC<HistoryViewProps> = ({ 
+  entries, 
+  onClearHistory, 
+  onDeleteEntry, 
+  pdfFontSize // Destructure font size
+}) => {
 
   const formatTimestamp = (timestamp: number): string => {
     const date = new Date(timestamp);
@@ -35,7 +58,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ entries, onClearHistory, onDe
   };
 
   const handleDownload = (entry: HistoryEntry) => {
-    const doc = generatePDF(entry.pdfContent, entry.font);
+    const doc = generatePDF(entry.pdfContent, entry.font, pdfFontSize);
     // Create a filename based on the timestamp
     const timestampStr = new Date(entry.timestamp).toISOString().replace(/[:.]/g, '-');
     doc.save(`cover_letter_history_${timestampStr}.pdf`);
@@ -107,6 +130,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ entries, onClearHistory, onDe
             variant="destructive" 
             size="sm" 
             onClick={onClearHistory}
+            className="w-full mb-4"
           >
             <Trash2 className="mr-2 h-4 w-4" /> Clear History
           </Button>
