@@ -210,21 +210,46 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
          if (coverLetterContent === null || resumeContent === null) {
             throw new Error("Could not retrieve content for selected documents.");
          }
-         const prompt = `Job Description:
+         const prompt = `
+You are a professional career coach and expert resume writer.  Use the inputs below (in order) to craft a tailored cover letter.
+
+---
+1) Job Description:
 ${jobDescriptionText || 'N/A'}
 
-Tone: ${tone}
+2) Tone:
+${tone}
 
-Additional Context:
+3) Additional Context:
 ${additionalContext || 'N/A'}
 
-Cover Letter:
+4) Base Cover Letter:
 ${coverLetterContent}
 
-Resume:
+5) Base Resume:
 ${resumeContent}
+---
 
-TODO: Add instructions here.`;
+Instructions:
+1. Adopt the requested tone throughout (professional, friendly, or casual).
+2. Structure:
+   - Greeting: “Dear Hiring Manager,” (or a provided name).
+   - Opening: One sentence stating the role and why you’re excited, weaving in additional context.
+   - Body: Two short paragraphs:
+     • Match your top 2–3 achievements or skills (from the resume) to the key requirements.
+     • Draw inspiration from the base cover letter, but rewrite in fresh language.
+   - Closing: Reiterate enthusiasm, mention fit or context, and include a call to action.
+   - Signature: “Sincerely,” or “Best regards,” + candidate name.
+3. Length & Format:
+   - ~300–400 words, 3–4 paragraphs.
+   - Do not repeat the job description verbatim; integrate its language naturally.
+4. Output only the final cover letter text, ready to copy/paste.
+
+Please generate the complete cover letter now.
+`.trim();
+
+
+
          setManualPromptOutput(prompt.trim());
          if (autoCopy) await copyToClipboardManual(prompt.trim(), 'Automatically copied to clipboard');
      } catch (err: any) {
