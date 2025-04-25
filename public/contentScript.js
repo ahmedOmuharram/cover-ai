@@ -3,9 +3,45 @@
 // Function to scrape job description from LinkedIn page
 function scrapeJobDescription() {
   // TODO: Implement the actual scraping logic here
-  return 'PLACEHOLDER';
+  // return 'PLACEHOLDER';
+  const selectors = [
+    'div.jobs-description__content',
+    'div.show-more-less-html__markup',
+    'div.description__text', // fallback for other job sites
+    '[data-test-description-section]' // some platforms use data-* attributes
+  ];
+
+  for (const selector of selectors) {
+    const el = document.querySelector(selector);
+    if (el) return el.innerText.trim();
+  }
+
+  return '⚠️ Could not find job description on this page.';
 }
 
+let hasScraped = false;
+
+function sendJobDescription() {
+  if (hasScraped) return;
+  const jobDescription = scrapeJobDescription();
+
+  if (jobDescription.startsWith('⚠️')) return; // skip if failed
+
+  hasScraped = true;
+  console.log('Scraped job description:', jobDescription?.substring(0, 100) + '...');
+
+  chrome.runtime.sendMessage({
+    type: 'SCRAPED_JOB_DESCRIPTION',
+    payload: { text: jobDescription }
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Error sending job description:', chrome.runtime.lastError);
+    } else {
+      console.log('Job description sent successfully, response:', response);
+    }
+  });
+}
+/*
 // Function to send the scraped description to the background script
 function sendJobDescription() {
   const jobDescription = scrapeJobDescription();
@@ -23,6 +59,7 @@ function sendJobDescription() {
     }
   });
 }
+*/
 
 // Execute scraping with a slight delay to allow page to fully load
 setTimeout(() => {

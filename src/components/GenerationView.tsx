@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+
 // Lucide Icons
 import { Wand2, Loader2, AlertTriangle, ClipboardCopy, Check, KeyRound, Save, Sparkles, Download } from 'lucide-react';
 
@@ -31,9 +32,10 @@ interface DocumentInfo {
 
 interface GenerationViewProps {
   autoDownload: boolean; // Prop needed for automatic PDF download
+  injectedJobDescription?: string;
 }
 
-const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
+const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload, injectedJobDescription }) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
   const [resumes, setResumes] = useState<DocumentInfo[]>([]);
@@ -90,6 +92,19 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
   useEffect(() => { // Cleanup toast timeout
     return () => { if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current); };
   }, []);
+
+  useEffect(() => {
+    if (injectedJobDescription) {
+      setJobDescriptionText((prev) => {
+        if (!prev) {
+          chrome.storage.session.set({ jobDescriptionText: injectedJobDescription });
+          return injectedJobDescription;
+        }
+        return prev;
+      });
+    }
+  }, [injectedJobDescription]);
+  
 
   useEffect(() => { // Load initial data
     const loadData = async () => {

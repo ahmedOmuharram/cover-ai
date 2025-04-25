@@ -36,6 +36,8 @@ function App() {
   const [tone, setTone] = useState<ToneSetting>('professional'); // Add state for tone
   const [autoCopy, setAutoCopy] = useState<boolean>(false); // Add state for auto-copy setting
   const [autoDownload, setAutoDownload] = useState<boolean>(false); // Add state for auto-download setting
+  const [incomingJobDescription, setIncomingJobDescription] = useState('');
+
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -84,6 +86,42 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    const handleMessage = (message: any, sender: any, sendResponse: any) => {
+      if (message.type === 'JOB_DESCRIPTION_TEXT') {
+        console.log('[App.tsx] Message received from background:', message.payload?.text);
+        if (message.payload?.text) {
+          setIncomingJobDescription(message.payload.text);
+        }
+      }
+    };
+  
+    chrome.runtime.onMessage.addListener(handleMessage);
+  
+    // Clean up the listener when component unmounts
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleMessage);
+    };
+  }, []);
+
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      chrome.storage.local.get(['jobDescription', 'jobDescriptionSource'], (result) => {
+        if (result.jobDescription) {
+          console.log('[App] Detected job description from storage:', result.jobDescription);
+          setIncomingJobDescription(result.jobDescription);
+          chrome.storage.local.remove(['jobDescription']); // clear so it doesn’t keep firing
+        }
+      });
+    }, 500); // check every half second
+  
+    return () => clearInterval(interval); // cleanup on unmount
+  }, []);
+  
+  
+
+  
   // Load letters from IndexedDB on mount
   useEffect(() => {
     loadLetters();
@@ -175,7 +213,14 @@ function App() {
     <div className="App flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground rounded-lg shadow-md">
       {/* Loading State */}
       {isLoading && <div className="loading-indicator flex-grow flex items-center justify-center">Loading...</div>}
-
+      {/*
+      {incomingJobDescription && (
+        <div className="p-4 bg-white rounded-lg shadow text-black">
+          <h2 className="text-xl font-bold mb-2">Job Description Found:</h2>
+          <p>{incomingJobDescription}</p>
+        </div>
+      )}
+      */}
       {/* Content Area - Render based on loading and letters state */}
       {!isLoading && (
         <>
@@ -219,6 +264,7 @@ function App() {
                 {activeView === 'generate' && 
                   <GenerationView 
                     autoDownload={autoDownload} // Pass down autoDownload prop
+                    injectedJobDescription={incomingJobDescription}
                   />
                 }
 
