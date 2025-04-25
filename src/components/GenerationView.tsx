@@ -136,13 +136,9 @@ const GenerationView: React.FC<GenerationViewProps> = ({
 
   useEffect(() => {
     if (injectedJobDescription) {
-      setJobDescriptionText((prev) => {
-        if (!prev) {
-          chrome.storage.session.set({ jobDescriptionText: injectedJobDescription });
-          return injectedJobDescription;
-        }
-        return prev;
-      });
+      // Update jobDescriptionText unconditionally on new job page
+      setJobDescriptionText(injectedJobDescription);
+      chrome.storage.session.set({ jobDescriptionText: injectedJobDescription });
     }
   }, [injectedJobDescription]);
   

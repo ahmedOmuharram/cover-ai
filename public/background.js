@@ -1,4 +1,3 @@
-
 // This function is called when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
   // Create a context menu item
@@ -110,9 +109,11 @@ let lastScrapedJobDescription = '';
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SCRAPED_JOB_DESCRIPTION' && message.payload?.text) {
     console.log('Background script received job description from content script');
+    console.log('LastScraped (new):', message.payload.text.substring(0, 100) + '...');
     
     // Store the scraped description
     lastScrapedJobDescription = message.payload.text;
+    console.log('lastScrapedJobDescription stored:', lastScrapedJobDescription.substring(0, 100) + '...');
     
     // If the tab has our side panel open, send the description to it
     /*
@@ -147,7 +148,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         jobDescriptionSource: 'scraper'
       });
 
-      
+    console.log('Stored in storage.local, sending badge change');
       chrome.action.setBadgeText({ text: '!', tabId: sender.tab.id });
       chrome.action.setBadgeBackgroundColor({ color: '#CB112D', tabId: sender.tab.id });
       chrome.action.setBadgeTextColor({ color: '#FFFFFF', tabId: sender.tab.id });
@@ -158,8 +159,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Required to use sendResponse asynchronously
   }
 });
-
-
-
 
 console.log("Background script loaded and badge logic added.");
