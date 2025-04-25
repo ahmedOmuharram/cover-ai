@@ -378,7 +378,7 @@ TODO: Add instructions here.`;
                 onValueChange={setSelectedCoverLetterId}
                 disabled={isGeneratingPrompt || isGeneratingAutomatic}
               >
-                <SelectTrigger id="cover-letter-select" className="w-full min-w-0 truncate overflow-hidden">
+                <SelectTrigger id="cover-letter-select" className="w-full min-w-0 truncate overflow-hidden bg-white">
                   <SelectValue placeholder="Select a cover letter..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -402,7 +402,7 @@ TODO: Add instructions here.`;
                 onValueChange={setSelectedResumeId}
                 disabled={isGeneratingPrompt || isGeneratingAutomatic}
               >
-                 <SelectTrigger id="resume-select" className="w-full min-w-0 truncate overflow-hidden">
+                 <SelectTrigger id="resume-select" className="w-full min-w-0 truncate overflow-hidden bg-white">
                    <SelectValue placeholder="Select a resume..." />
                  </SelectTrigger>
                  <SelectContent>
@@ -428,7 +428,7 @@ TODO: Add instructions here.`;
               value={jobDescriptionText}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setJobDescriptionText(e.target.value)}
               rows={8}
-              className="min-h-[150px]" // Slightly smaller default height
+              className="min-h-[150px] bg-white"
               disabled={isGeneratingPrompt || isGeneratingAutomatic}
              />
            </div>
@@ -443,23 +443,21 @@ TODO: Add instructions here.`;
           value={additionalContext}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAdditionalContext(e.target.value)}
           rows={4} // Shorter default height
-          className="min-h-[80px]"
+          className="min-h-[80px] bg-white"
           disabled={isGeneratingPrompt || isGeneratingAutomatic}
          />
        </div>
 
         <Tabs defaultValue="prompt" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="prompt" className="data-[state=active]:shadow-none">
+            <TabsList className="grid w-full grid-cols-2 bg-white">
+                <TabsTrigger value="prompt" className="data-[state=active]:shadow-none data-[state=active]:bg-[#245F73] data-[state=active]:text-primary-foreground">
                     Prompt
                 </TabsTrigger>
                 <TabsTrigger 
                   value="automatic" 
                   className={cn(
-                    "group", // Add group utility
-                    // Active state: Gradient BG, white text.
+                    "group", 
                     "data-[state=active]:shadow-none data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-blue-500 data-[state=active]:text-primary-foreground"
-                    // NO inactive styles directly on trigger
                   )}
                 >
                      <div className="flex items-center gap-1.5">
@@ -510,7 +508,14 @@ TODO: Add instructions here.`;
                            {manualCopyButtonText}
                          </Button>
                        </div>
-                       <Textarea readOnly value={manualPromptOutput} className="min-h-[200px] font-mono text-sm bg-muted/50" rows={15} />
+                       <Textarea
+                        id="manual-prompt-output"
+                        readOnly
+                        value={manualPromptOutput}
+                        placeholder="Generated prompt will appear here..."
+                        rows={10}
+                        className="text-xs font-mono bg-white"
+                       />
                     </div>
                  )}
                  {/* Loading Skeleton for Output */}
@@ -530,19 +535,19 @@ TODO: Add instructions here.`;
                 {/* API Key Section */}
                  <div className="space-y-2">
                    <Label htmlFor="api-key-input" className="text-base font-medium">OpenAI API Key</Label>
-                   <div className="flex items-center gap-2">
+                   <div className="flex items-center space-x-2">
                      <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                      <Input
-                       id="api-key-input"
+                       id="api-key"
                        type="password"
-                       placeholder="Enter your OpenAI API key (sk-...)"
+                       placeholder="Enter your OpenAI API Key (sk-...)"
                        value={apiKey}
                        onChange={(e) => handleApiKeyChange(e.target.value)}
-                       className={cn(apiKeyError && "border-destructive")}
+                       className={cn("flex-grow", apiKeyError && "border-destructive", "bg-white")}
                        disabled={isGeneratingAutomatic}
                      />
-                     <Button onClick={handleSaveApiKey} disabled={!apiKey || !!apiKeyError || isGeneratingAutomatic} variant="outline" size="icon" aria-label="Save API Key">
-                       <Save className="h-4 w-4" />
+                     <Button onClick={handleSaveApiKey} size="sm" disabled={!apiKey || !!apiKeyError}>
+                       <Save className="mr-2 h-4 w-4" /> Save Key
                      </Button>
                    </div>
                     {apiKeyError && (
@@ -609,7 +614,14 @@ TODO: Add instructions here.`;
                             </TooltipProvider>
                          </div>
                        </div>
-                       <Textarea readOnly value={generatedCoverLetterOutput} className="min-h-[200px] font-mono text-sm bg-muted/50" rows={20} />
+                       <Textarea
+                        id="generated-cover-letter"
+                        readOnly
+                        value={generatedCoverLetterOutput}
+                        placeholder="Generated cover letter will appear here..."
+                        rows={12}
+                        className="text-sm bg-white"
+                       />
                     </div>
                  )}
                  {/* Loading Skeleton for Output */}

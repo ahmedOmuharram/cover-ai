@@ -19,6 +19,7 @@ import { Button } from "./components/ui/button.js";
 import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Document {
   id: number;
@@ -224,100 +225,116 @@ function App() {
 
                 {/* Settings Page - Apply Tailwind classes */}
                 {activeView === 'settings' &&
-                  <div className="settings-page p-5 space-y-6"> 
-                    <h2 className="text-2xl font-semibold tracking-tight">Settings</h2>
-
-                    {/* Tone Selection Setting */}
-                    <div className="flex items-center space-x-4">
-                      <Label htmlFor="tone-select" className="w-32 text-right flex-shrink-0"> 
-                        Generation Tone
-                      </Label>
-                      <Select 
-                        value={tone}
-                        onValueChange={(value: ToneSetting) => handleToneChange(value)}
-                      >
-                        <SelectTrigger id="tone-select" className="w-[180px]">
-                          <SelectValue placeholder="Select tone" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="professional">Professional</SelectItem>
-                          <SelectItem value="friendly">Friendly</SelectItem>
-                          <SelectItem value="casual">Casual</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {/* Auto-copy Setting */}
-                    <div className="flex items-center space-x-3">
-                      <Checkbox 
-                        id="auto-copy-checkbox" 
-                        checked={autoCopy}
-                        onCheckedChange={(checked) => {
-                          const isChecked = !!checked; // Convert CheckedState to boolean
-                          setAutoCopy(isChecked);
-                          chrome.storage.local.set({ autoCopy: isChecked }, () => {
-                            console.log('Auto-copy setting saved:', isChecked);
-                          });
-                        }}
-                      />
-                      <Label htmlFor="auto-copy-checkbox" className="font-normal"> 
-                        Automatically copy generated text to clipboard
-                      </Label>
-                    </div>
-
-                    {/* Auto-download Setting */}
-                    <div className="flex items-center space-x-3">
-                       <Checkbox 
-                        id="auto-download-checkbox" 
-                        checked={autoDownload}
-                        onCheckedChange={(checked) => {
-                          const isChecked = !!checked; // Convert CheckedState to boolean
-                          setAutoDownload(isChecked);
-                          chrome.storage.local.set({ autoDownload: isChecked }, () => {
-                            console.log('Auto-download setting saved:', isChecked);
-                          });
-                        }}
-                      />
-                      <Label htmlFor="auto-download-checkbox" className="font-normal">
-                        Automatically download generated cover letter as PDF
-                      </Label>
-                    </div>
-                    
-                    {/* Divider (Optional but adds visual separation) */}
-                    <div className="border-t border-border pt-6 space-y-6"> 
-                      {/* Clear Data Button Setting - Align items */}
-                      <div className="flex items-center justify-between"> {/* Use justify-between */} 
-                        <Label className="w-32 flex-shrink-0">Manage Data</Label> {/* Remove text-right */} 
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={handleClearDatabase}
-                        >
-                          Clear All Data
-                        </Button>
+                  <Card className="h-full gap-3"> 
+                    <CardHeader>
+                      <CardTitle className="text-2xl tracking-tight mb-0">Settings</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col justify-between h-full p-5 pt-0 mt-0">
+                      {/* Top settings: tone, auto-copy, auto-download */}
+                      <div className="space-y-6">
+                        {/* Tone Selection Setting */}
+                        <div className="flex items-center space-x-4">
+                          <Label htmlFor="tone-select" className="w-32 text-right flex-shrink-0">
+                            Generation Tone
+                          </Label>
+                          <div className="ml-auto">
+                            <Select
+                              value={tone}
+                              onValueChange={(value: ToneSetting) => handleToneChange(value)}
+                            >
+                              <SelectTrigger id="tone-select" className="w-[180px]">
+                                <SelectValue placeholder="Select tone" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="professional">Professional</SelectItem>
+                                <SelectItem value="friendly">Friendly</SelectItem>
+                                <SelectItem value="casual">Casual</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        {/* Auto-copy Setting */}
+                        <div className="flex items-center space-x-4">
+                          <Label htmlFor="auto-copy" className="flex-grow">
+                            Auto-copy generated prompt to clipboard?
+                          </Label>
+                          <div className="ml-auto flex items-center space-x-2">
+                            <Checkbox
+                              id="auto-copy"
+                              checked={autoCopy}
+                              onCheckedChange={(checked) => {
+                                const isChecked = !!checked;
+                                setAutoCopy(isChecked);
+                                chrome.storage.local.set({ autoCopy: isChecked });
+                                console.log('Auto-copy setting saved:', isChecked);
+                              }}
+                            />
+                          </div>
+                        </div>
+                        {/* Auto-download Setting */}
+                        <div className="flex items-center space-x-4">
+                          <Label htmlFor="auto-download" className="flex-grow">
+                            Auto-download generated cover letter as PDF?
+                          </Label>
+                          <div className="ml-auto flex items-center space-x-2">
+                            <Checkbox
+                              id="auto-download"
+                              checked={autoDownload}
+                              onCheckedChange={(checked) => {
+                                const isChecked = !!checked;
+                                setAutoDownload(isChecked);
+                                chrome.storage.local.set({ autoDownload: isChecked });
+                                console.log('Auto-download setting saved:', isChecked);
+                              }}
+                            />
+                          </div>
+                        </div>
                       </div>
-
-                      {/* Clear API Key Button Setting - Align items */}
-                      <div className="flex items-center justify-between"> {/* Use justify-between */} 
-                        <Label className="w-32 flex-shrink-0">API Key</Label> {/* Remove text-right */} 
-                        <Button
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            chrome.storage.local.remove(['openaiApiKey'], () => {
-                              if (chrome.runtime.lastError) {
-                                console.error('Error clearing API key:', chrome.runtime.lastError);
-                              } else {
-                                console.log('API key cleared successfully');
-                              }
-                            });
-                          }}
-                        >
-                          Clear Saved API Key
-                        </Button>
+                      {/* Bottom actions: clear data & API key */}
+                      <div className="space-y-6 pt-4 border-t">
+                        {/* Clear Database Setting - Restructured */}
+                        <div className="flex items-start space-x-4">
+                          <Label className="w-32 text-right flex-shrink-0 pt-1.5">
+                            Data Management
+                          </Label>
+                          <div className="flex flex-col items-end flex-grow">
+                            <Button variant="destructive" size="sm" onClick={handleClearDatabase}>
+                              Delete Uploaded Documents
+                            </Button>
+                            <span className="block text-xs text-muted-foreground italic mt-1">
+                              Deletes uploaded cover letters and resumes
+                            </span>
+                          </div>
+                        </div>
+                        {/* Clear API Key Setting - Grouping button and text */}
+                        <div className="flex items-start space-x-4">
+                          <Label className="w-32 text-right flex-shrink-0 pt-1.5">
+                            API Key
+                          </Label>
+                          <div className="flex flex-col items-end flex-grow">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                chrome.storage.local.remove(['openaiApiKey'], () => {
+                                  if (chrome.runtime.lastError) {
+                                    console.error('Error clearing API key:', chrome.runtime.lastError);
+                                  } else {
+                                    console.log('API key cleared successfully');
+                                  }
+                                });
+                              }}
+                            >
+                              Clear Saved API Key
+                            </Button>
+                            <span className="block text-xs text-muted-foreground italic mt-1">
+                              Removes your stored OpenAI API key
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 }
               </div>
             </>
