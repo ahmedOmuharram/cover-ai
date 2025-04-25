@@ -16,7 +16,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeView, onNavClick }) => {
   const baseButtonClass = "p-2 rounded-md cursor-pointer transition-colors duration-150 ease-in-out flex items-center justify-center h-9 w-9"; // Changed back to p-2
   
   // Styles for the active nav item
-  const activeButtonClass = "bg-primary text-primary-foreground";
+  const activeButtonClass = "bg-[#245F73] text-primary-foreground";
   
   // Styles for inactive nav items (default text color + hover effect)
   const inactiveButtonClass = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"; 

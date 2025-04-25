@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Lucide Icons
-import { Wand2, Loader2, AlertTriangle, ClipboardCopy, Check, KeyRound, Save, Sparkles, Download } from 'lucide-react';
+import { Wand2, Loader2, AlertTriangle, ClipboardCopy, Check, KeyRound, Save, Sparkles, Download, Pencil, Trash2, X } from 'lucide-react';
 
 interface DocumentInfo {
   id: number;
@@ -31,9 +31,10 @@ interface DocumentInfo {
 
 interface GenerationViewProps {
   autoDownload: boolean; // Prop needed for automatic PDF download
+  useAdditionalContext: boolean; // Prop to control using additional context
 }
 
-const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
+const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload, useAdditionalContext }) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
   const [resumes, setResumes] = useState<DocumentInfo[]>([]);
@@ -45,6 +46,8 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
   const [apiKeyError, setApiKeyError] = useState<string>('');
   const [autoCopy, setAutoCopy] = useState<boolean>(false); // Needed for manual prompt auto-copy
   const [additionalContext, setAdditionalContext] = useState<string>(''); // State for additional context
+  const [isEditingApiKey, setIsEditingApiKey] = useState<boolean>(false); // State for editing API key
+  const [originalApiKey, setOriginalApiKey] = useState<string>(''); // Store key before editing
 
   // Loading/Error States
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
@@ -77,9 +80,9 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
     return /^sk-/.test(key);
   };
 
-  const generatePDF = (text: string) => {
+  const generatePDF = (text: string, font: 'times' | 'helvetica' = 'times') => {
     const doc = new jsPDF();
-    doc.setFont('times', 'normal');
+    doc.setFont(font, 'normal');
     doc.setFontSize(12);
     const lines = doc.splitTextToSize(text, doc.internal.pageSize.getWidth() - 40);
     doc.text(lines, 20, 20);
@@ -183,6 +186,8 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload }) => {
           setApiKeyError('Failed to save API key.');
         } else {
           setApiKeyError('');
+          setOriginalApiKey(apiKey);
+          setIsEditingApiKey(false);
           showToastNotification('API Key saved successfully!');
         }
       });
@@ -268,51 +273,47 @@ Please generate the complete cover letter now.
      console.log("Generate Automatic clicked");
      try {
         if (!apiKey || !validateApiKey(apiKey)) {
+            setApiKeyError("Valid OpenAI API key is required."); // Set specific API key error
             throw new Error("Valid OpenAI API key is required.");
         }
         if (!selectedCoverLetterId || !selectedResumeId) {
             throw new Error("Please select both a cover letter and a resume.");
         }
-        // ... (rest of API call logic) ...
-         const clId = parseInt(selectedCoverLetterId, 10);
-         const resumeId = parseInt(selectedResumeId, 10);
-         const [coverLetterContent, resumeContent] = await Promise.all([
-            getCoverLetterContent(clId),
-            getResumeContent(resumeId)
-         ]);
-          if (coverLetterContent === null || resumeContent === null) {
-            throw new Error("Could not retrieve content for selected documents.");
-         }
-         const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-         const systemPrompt = `You are an expert cover letter writer. You have access to the following information:
--      - The original cover letter: ${coverLetterContent}
--      - The user's resume: ${resumeContent}
--      - The job description: ${jobDescriptionText || 'N/A'}
--      - Additional Context: ${additionalContext || 'N/A'}
--      - The desired tone: ${tone}
--
--      Your task is to generate a concise, professional cover letter that:
--      1. Matches the job requirements
--      2. Highlights relevant experience from the resume
--      3. Maintains the style of the original cover letter
--      4. Uses the specified tone (${tone})
--      5. Is exactly 270 words or less
--      
--      Make sure to:
--      - Keep the same general structure as the original cover letter
--      - Use specific examples from the resume
--      - Address key requirements from the job description
--      - Maintain professional formatting
--      - Be concise and impactful
--      - Include all essential sections: header, date, salutation, body paragraphs, and closing
--      - Focus on quality over quantity
--      - Count words carefully to ensure the total is 270 or less`;
 
-         const completion = await openai.chat.completions.create({
+        const clId = parseInt(selectedCoverLetterId, 10);
+        const resumeId = parseInt(selectedResumeId, 10);
+        const [coverLetterContent, resumeContent] = await Promise.all([
+           getCoverLetterContent(clId),
+           getResumeContent(resumeId)
+        ]);
+
+        if (coverLetterContent === null || resumeContent === null) {
+           throw new Error("Could not retrieve content for selected documents.");
+        }
+
+        const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+
+        // Conditionally add additional context to the system prompt
+        const contextInstruction = useAdditionalContext && additionalContext
+            ? ` Also consider the following additional context provided by the user: ${additionalContext}.`
+            : '';
+
+        const systemPrompt = `You are an expert cover letter writer. Your task is to rewrite the provided cover letter based *only* on the provided resume and job description. Adapt the tone to be ${tone}. Keep the original cover letter's structure and key points where possible, but tailor the content specifically to the job description, highlighting relevant skills and experiences from the resume.${contextInstruction} Respond only with the rewritten cover letter text, nothing else.`;
+
+        const userPrompt = `Job Description:
+${jobDescriptionText || 'N/A'}
+
+Cover Letter:
+${coverLetterContent}
+
+Resume:
+${resumeContent}`;
+
+        const response = await openai.chat.completions.create({
              model: "gpt-4o", // Ensure model is specified
              messages: [ // Ensure messages are specified
                { role: "system", content: systemPrompt },
-               { role: "user", content: "Please generate a tailored cover letter based on the provided information." }
+               { role: "user", content: userPrompt }
              ],
              temperature: 0.7
          }).catch((error) => { // Refined error handling from AutomaticPage
@@ -328,11 +329,15 @@ Please generate the complete cover letter now.
              }
              throw new Error("An unexpected error occurred while contacting OpenAI.");
           });
-          const output = completion.choices[0]?.message?.content || '';
+          const output = response.choices[0]?.message?.content || '';
           setGeneratedCoverLetterOutput(output);
           if(autoDownload && output) {
-            const doc = generatePDF(output);
-            doc.save('cover_letter.pdf');
+            // Retrieve font setting before generating PDF
+            chrome.storage.local.get('selectedFont', (result) => {
+                const fontToUse: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
+                const doc = generatePDF(output, fontToUse); 
+                doc.save('cover_letter.pdf');
+            });
          }
 
      } catch (err: any) {
@@ -403,7 +408,7 @@ Please generate the complete cover letter now.
                 onValueChange={setSelectedCoverLetterId}
                 disabled={isGeneratingPrompt || isGeneratingAutomatic}
               >
-                <SelectTrigger id="cover-letter-select" className="w-full min-w-0 truncate overflow-hidden">
+                <SelectTrigger id="cover-letter-select" className="w-full min-w-0 truncate overflow-hidden bg-white">
                   <SelectValue placeholder="Select a cover letter..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -421,13 +426,13 @@ Please generate the complete cover letter now.
             </div>
              {/* Resume Select */}
              <div className="space-y-1.5">
-               <Label htmlFor="resume-select">Base Resume</Label>
+               <Label htmlFor="resume-select">Resume</Label>
               <Select
                 value={selectedResumeId}
                 onValueChange={setSelectedResumeId}
                 disabled={isGeneratingPrompt || isGeneratingAutomatic}
               >
-                 <SelectTrigger id="resume-select" className="w-full min-w-0 truncate overflow-hidden">
+                 <SelectTrigger id="resume-select" className="w-full min-w-0 truncate overflow-hidden bg-white">
                    <SelectValue placeholder="Select a resume..." />
                  </SelectTrigger>
                  <SelectContent>
@@ -453,13 +458,14 @@ Please generate the complete cover letter now.
               value={jobDescriptionText}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setJobDescriptionText(e.target.value)}
               rows={8}
-              className="min-h-[150px]" // Slightly smaller default height
+              className="min-h-[150px] bg-white placeholder:text-sm"
               disabled={isGeneratingPrompt || isGeneratingAutomatic}
              />
            </div>
       </div>
 
        {/* Additional Context Textarea (Before Tabs) */}
+       {useAdditionalContext && (
        <div className="space-y-1.5">
          <Label htmlFor="additional-context">Additional Context (Optional)</Label>
          <Textarea
@@ -468,23 +474,22 @@ Please generate the complete cover letter now.
           value={additionalContext}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAdditionalContext(e.target.value)}
           rows={4} // Shorter default height
-          className="min-h-[80px]"
+          className="min-h-[80px] bg-white placeholder:text-sm"
           disabled={isGeneratingPrompt || isGeneratingAutomatic}
          />
        </div>
+       )}
 
         <Tabs defaultValue="prompt" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="prompt" className="data-[state=active]:shadow-none">
+            <TabsList className="grid w-full grid-cols-2 bg-white">
+                <TabsTrigger value="prompt" className="data-[state=active]:shadow-none data-[state=active]:bg-[#245F73] data-[state=active]:text-primary-foreground">
                     Prompt
                 </TabsTrigger>
                 <TabsTrigger 
                   value="automatic" 
                   className={cn(
-                    "group", // Add group utility
-                    // Active state: Gradient BG, white text.
+                    "group", 
                     "data-[state=active]:shadow-none data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-blue-500 data-[state=active]:text-primary-foreground"
-                    // NO inactive styles directly on trigger
                   )}
                 >
                      <div className="flex items-center gap-1.5">
@@ -519,7 +524,7 @@ Please generate the complete cover letter now.
                    <Button
                      onClick={handleGeneratePrompt}
                      disabled={isGeneratingPrompt || !selectedCoverLetterId || !selectedResumeId}
-                     className="w-full sm:w-auto"
+                     className="w-full bg-[#733E24] text-white hover:bg-[#5e311f] disabled:bg-gray-400 disabled:text-gray-800"
                    >
                      {isGeneratingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                      Generate Prompt
@@ -535,7 +540,14 @@ Please generate the complete cover letter now.
                            {manualCopyButtonText}
                          </Button>
                        </div>
-                       <Textarea readOnly value={manualPromptOutput} className="min-h-[200px] font-mono text-sm bg-muted/50" rows={15} />
+                       <Textarea
+                        id="manual-prompt-output"
+                        readOnly
+                        value={manualPromptOutput}
+                        placeholder="Generated prompt will appear here..."
+                        rows={10}
+                        className="text-xs font-mono bg-white"
+                       />
                     </div>
                  )}
                  {/* Loading Skeleton for Output */}
@@ -552,33 +564,128 @@ Please generate the complete cover letter now.
 
              {/* Automatic Generation Tab */}
             <TabsContent value="automatic" className="mt-4 space-y-4">
-                {/* API Key Section */}
+                {/* API Key Section - Updated Logic */}
                  <div className="space-y-2">
                    <Label htmlFor="api-key-input" className="text-base font-medium">OpenAI API Key</Label>
-                   <div className="flex items-center gap-2">
-                     <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                     <Input
-                       id="api-key-input"
-                       type="password"
-                       placeholder="Enter your OpenAI API key (sk-...)"
-                       value={apiKey}
-                       onChange={(e) => handleApiKeyChange(e.target.value)}
-                       className={cn(apiKeyError && "border-destructive")}
-                       disabled={isGeneratingAutomatic}
-                     />
-                     <Button onClick={handleSaveApiKey} disabled={!apiKey || !!apiKeyError || isGeneratingAutomatic} variant="outline" size="icon" aria-label="Save API Key">
-                       <Save className="h-4 w-4" />
-                     </Button>
-                   </div>
-                    {apiKeyError && (
+                   
+                   {/* Conditional Rendering based on apiKey existence and editing state */}                  
+                   {apiKey && validateApiKey(apiKey) && !isEditingApiKey ? (
+                     // Display Mode: Show masked key + Edit/Delete buttons
+                     <div className="flex items-center space-x-2">
+                       <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                       <span className="flex-grow p-2 border rounded-md bg-muted text-muted-foreground text-sm font-mono overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
+                         sk-{apiKey.slice(3, 10)}{'•'.repeat(Math.max(0, apiKey.length - 10))}
+                       </span>
+                       <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => { 
+                                setOriginalApiKey(apiKey);
+                                setIsEditingApiKey(true); 
+                              }} className="h-9 w-9">
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Edit Key</p></TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-9 w-9 text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  if (window.confirm('Are you sure you want to delete your saved API key?')) {
+                                    chrome.storage.local.remove('openaiApiKey', () => {
+                                      if (chrome.runtime.lastError) {
+                                        console.error('Error deleting API key:', chrome.runtime.lastError);
+                                        setApiKeyError('Failed to delete API key.');
+                                      } else {
+                                        setApiKey('');
+                                        setApiKeyError('');
+                                        setIsEditingApiKey(false);
+                                        showToastNotification('API Key deleted successfully!');
+                                      }
+                                    });
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Delete Key</p></TooltipContent>
+                          </Tooltip>
+                       </TooltipProvider>
+                     </div>
+                   ) : (
+                     // Edit or Initial Input Mode
+                     <div className="flex items-center space-x-2">
+                       <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                       <Input
+                         id="api-key"
+                         type="password"
+                         placeholder="Enter your OpenAI API Key (sk-...)"
+                         value={apiKey}
+                         onChange={(e) => handleApiKeyChange(e.target.value)}
+                         className={cn("flex-grow", apiKeyError && "border-destructive", "bg-white")}
+                         disabled={isGeneratingAutomatic} // Keep disabled during generation
+                       />
+                       {isEditingApiKey ? (
+                         // Save/Cancel buttons during edit
+                         <>
+                           <TooltipProvider delayDuration={100}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                 <Button 
+                                   onClick={handleSaveApiKey} 
+                                   size="icon" 
+                                   className="h-8 w-8 bg-[#245F73] hover:bg-[#1d4a5b] text-white" 
+                                   disabled={!apiKey || !!apiKeyError || isGeneratingAutomatic}
+                                 >
+                                   <Check className="h-4 w-4" />
+                                 </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>Save Changes</p></TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={() => { 
+                                  setApiKey(originalApiKey);
+                                  setApiKeyError(''); 
+                                  setIsEditingApiKey(false); 
+                                }} className="h-9 w-9">
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>Cancel</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                         </>
+                       ) : (
+                         // Original Save button for initial input
+                         <Button 
+                           onClick={handleSaveApiKey} 
+                           size="sm" 
+                           disabled={!apiKey || !!apiKeyError || isGeneratingAutomatic}
+                           className="bg-[#733E24] text-white hover:bg-[#5e311f] disabled:bg-gray-400 disabled:text-gray-600"
+                         >
+                           <Save className="mr-2 h-4 w-4" /> Save Key
+                         </Button>
+                       )}
+                     </div>
+                   )}
+
+                    {/* API Key Error Display (Moved slightly down for clarity) */}                   
+                    {(apiKeyError && (!apiKey || isEditingApiKey)) && (
                      <Alert variant="destructive" className="mt-2">
                        <AlertTriangle className="h-4 w-4" />
                        <AlertTitle>API Key Error</AlertTitle>
                        <AlertDescription>{apiKeyError}</AlertDescription>
                      </Alert>
                    )}
-                   {!apiKeyError && apiKey && validateApiKey(apiKey) && (
-                     <p className="text-xs text-muted-foreground mt-1">API key appears valid!</p>
+                   {/* Valid Key Hint (Only show when displaying saved key) */}                   
+                   {apiKey && validateApiKey(apiKey) && !isEditingApiKey && (
+                     <p className="text-xs text-muted-foreground mt-1">API key saved and appears valid.</p>
                    )}
                  </div>
 
@@ -596,7 +703,7 @@ Please generate the complete cover letter now.
                    <Button
                      onClick={handleGenerateAutomatic}
                      disabled={isGeneratingAutomatic || !apiKey || !validateApiKey(apiKey) || !selectedCoverLetterId || !selectedResumeId}
-                     className="w-full sm:w-auto"
+                     className="w-full bg-[#733E24] text-white hover:bg-[#5e311f] disabled:bg-gray-400 disabled:text-gray-800"
                    >
                      {isGeneratingAutomatic ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                      Generate Cover Letter
@@ -623,7 +730,13 @@ Please generate the complete cover letter now.
                                    <Button 
                                      variant="ghost" 
                                      size="icon" 
-                                     onClick={() => generatePDF(generatedCoverLetterOutput).save('cover_letter.pdf')}
+                                     onClick={() => {
+                                        // Retrieve font setting before generating PDF
+                                        chrome.storage.local.get('selectedFont', (result) => {
+                                            const fontToUse: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
+                                            generatePDF(generatedCoverLetterOutput, fontToUse).save('cover_letter.pdf');
+                                        });
+                                     }}
                                      className="h-8 w-8"
                                     >
                                      <Download className="h-4 w-4" />
@@ -634,7 +747,14 @@ Please generate the complete cover letter now.
                             </TooltipProvider>
                          </div>
                        </div>
-                       <Textarea readOnly value={generatedCoverLetterOutput} className="min-h-[200px] font-mono text-sm bg-muted/50" rows={20} />
+                       <Textarea
+                        id="generated-cover-letter"
+                        readOnly
+                        value={generatedCoverLetterOutput}
+                        placeholder="Generated cover letter will appear here..."
+                        rows={12}
+                        className="text-sm bg-white"
+                       />
                     </div>
                  )}
                  {/* Loading Skeleton for Output */}
