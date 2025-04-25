@@ -428,7 +428,7 @@ TODO: Add instructions here.`;
               value={jobDescriptionText}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setJobDescriptionText(e.target.value)}
               rows={8}
-              className="min-h-[150px] bg-white"
+              className="min-h-[150px] bg-white placeholder:text-sm"
               disabled={isGeneratingPrompt || isGeneratingAutomatic}
              />
            </div>
@@ -443,7 +443,7 @@ TODO: Add instructions here.`;
           value={additionalContext}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAdditionalContext(e.target.value)}
           rows={4} // Shorter default height
-          className="min-h-[80px] bg-white"
+          className="min-h-[80px] bg-white placeholder:text-sm"
           disabled={isGeneratingPrompt || isGeneratingAutomatic}
          />
        </div>
@@ -492,7 +492,7 @@ TODO: Add instructions here.`;
                    <Button
                      onClick={handleGeneratePrompt}
                      disabled={isGeneratingPrompt || !selectedCoverLetterId || !selectedResumeId}
-                     className="w-full"
+                     className="w-full bg-[#733E24] text-white hover:bg-[#5e311f] disabled:bg-gray-400 disabled:text-gray-800"
                    >
                      {isGeneratingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                      Generate Prompt
@@ -546,7 +546,12 @@ TODO: Add instructions here.`;
                        className={cn("flex-grow", apiKeyError && "border-destructive", "bg-white")}
                        disabled={isGeneratingAutomatic}
                      />
-                     <Button onClick={handleSaveApiKey} size="sm" disabled={!apiKey || !!apiKeyError}>
+                     <Button
+                       onClick={handleSaveApiKey}
+                       size="sm"
+                       disabled={!apiKey || !!apiKeyError}
+                       className="bg-[#733E24] text-white hover:bg-[#5e311f] disabled:bg-gray-400 disabled:text-gray-800"
+                     >
                        <Save className="mr-2 h-4 w-4" /> Save Key
                      </Button>
                    </div>
@@ -576,7 +581,7 @@ TODO: Add instructions here.`;
                    <Button
                      onClick={handleGenerateAutomatic}
                      disabled={isGeneratingAutomatic || !apiKey || !validateApiKey(apiKey) || !selectedCoverLetterId || !selectedResumeId}
-                     className="w-full"
+                     className="w-full bg-[#733E24] text-white hover:bg-[#5e311f] disabled:bg-gray-400 disabled:text-gray-800"
                    >
                      {isGeneratingAutomatic ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                      Generate Cover Letter

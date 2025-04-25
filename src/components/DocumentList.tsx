@@ -184,10 +184,9 @@ const DocumentList: React.FC<DocumentListProps> = ({
         )}
       </CardContent>
       <CardFooter>
-        <Button 
-          variant="outline"
+        <Button
           size="sm"
-          className="w-full"
+          className="w-full bg-[#733E24] text-white hover:bg-[#5e311f]"
           onClick={() => handleUploadClick(inputRef)}
         >
           <PlusCircle className="mr-2 h-4 w-4" /> 
