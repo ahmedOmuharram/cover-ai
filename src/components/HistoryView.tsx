@@ -59,9 +59,8 @@ const HistoryView: React.FC<HistoryViewProps> = ({
 
   const handleDownload = (entry: HistoryEntry) => {
     const doc = generatePDF(entry.pdfContent, entry.font, pdfFontSize);
-    // Create a filename based on the timestamp
-    const timestampStr = new Date(entry.timestamp).toISOString().replace(/[:.]/g, '-');
-    doc.save(`cover_letter_history_${timestampStr}.pdf`);
+    // Use the filename stored with the history entry
+    doc.save(entry.filename);
   };
 
   return (
