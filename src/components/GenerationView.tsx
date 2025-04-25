@@ -545,8 +545,8 @@ TODO: Add instructions here.`;
                      // Display Mode: Show masked key + Edit/Delete buttons
                      <div className="flex items-center space-x-2">
                        <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                       <span className="flex-grow p-2 border rounded-md bg-muted text-muted-foreground text-sm font-mono">
-                          ••••••••sk-{apiKey.slice(-3)}
+                       <span className="flex-grow p-2 border rounded-md bg-muted text-muted-foreground text-sm font-mono overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
+                         sk-{apiKey.slice(3, 10)}{'•'.repeat(Math.max(0, apiKey.length - 10))}
                        </span>
                        <TooltipProvider delayDuration={100}>
                           <Tooltip>
