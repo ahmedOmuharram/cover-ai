@@ -5,7 +5,6 @@ import {
   getCoverLetterContent,
   getAllResumes,
   getResumeContent,
-  addHistoryEntry // Import the new function
 } from '../utils/indexedDB'; // Assuming indexedDB.js/.ts exists
 import OpenAI from 'openai';
 import { jsPDF } from 'jspdf';
@@ -38,6 +37,8 @@ interface GenerationViewProps {
   customDefaultFilename: string;
   maxWords: number; // Add maxWords prop
   pdfFontSize: number; // Add font size prop
+  // Add callback prop
+  onGenerationComplete: (data: { content: string; font: 'times' | 'helvetica'; filename: string }) => void;
 }
 
 const GenerationView: React.FC<GenerationViewProps> = ({ 
@@ -46,7 +47,8 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   useCustomDefaultFilename, // Destructure new props
   customDefaultFilename, 
   maxWords,
-  pdfFontSize // Destructure font size
+  pdfFontSize, // Destructure font size
+  onGenerationComplete // Destructure callback
 }) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
@@ -410,11 +412,15 @@ ${resumeContent}`;
              }
              // -------------------------------------------
              
-             // Add entry to history (fire and forget, errors logged in indexedDB.ts)
-             addHistoryEntry(output, fontUsed, determinedFilename)
-               .catch(err => console.error("Failed to save to history:", err)); 
-             
-             // --- Auto Download Logic (using the retrieved font and filename) ---
+             // === Call the callback to notify App instead of adding directly ===
+             onGenerationComplete({
+               content: output,
+               font: fontUsed,
+               filename: determinedFilename
+             });
+             // ================================================================
+
+             // --- Auto Download Logic (still needed here) ---
              if(autoDownload && output) {
                 const doc = generatePDF(output, fontUsed); 
                 doc.save(determinedFilename); // Use the determined filename

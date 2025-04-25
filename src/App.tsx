@@ -19,16 +19,9 @@ import {
   getAllHistoryEntries,
   clearHistory,
   HistoryEntry,
-  deleteHistoryEntry
+  deleteHistoryEntry,
+  addHistoryEntry
 } from "./utils/indexedDB.js";
-import { Button } from "./components/ui/button.js";
-import { Label } from "./components/ui/label";
-import { Checkbox } from "./components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check, X, Pencil, Trash2 } from 'lucide-react';
 
 interface Document {
   id: number;
@@ -336,6 +329,20 @@ function App() {
     });
   };
 
+  // Callback function for when generation is complete in GenerationView
+  const handleGenerationComplete = async (data: { content: string; font: 'times' | 'helvetica'; filename: string }) => {
+    try {
+      console.log('Generation complete, adding to history:', data.filename);
+      await addHistoryEntry(data.content, data.font, data.filename);
+      // After successfully adding, reload the history state
+      await loadHistory();
+      console.log('History reloaded after generation.');
+    } catch (error) {
+      console.error('Failed to add history entry or reload history:', error);
+      // Optionally show an error to the user
+    }
+  };
+
   return (
     <div className="App flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground rounded-lg shadow-md">
       {/* Loading State */}
@@ -389,6 +396,7 @@ function App() {
                     customDefaultFilename={customDefaultFilename}
                     maxWords={maxWords} // Pass maxWords prop
                     pdfFontSize={pdfFontSize} // Pass font size prop
+                    onGenerationComplete={handleGenerationComplete} // Pass callback handler
                   />
                 }
 
