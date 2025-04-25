@@ -4,6 +4,7 @@ import Navbar, { ActiveView } from "./components/Navbar";
 import UploadSection from "./components/UploadSection";
 import DocumentList from "./components/DocumentList";
 import GenerationView from "./components/GenerationView";
+import HistoryView from "./components/HistoryView";
 import {
   addCoverLetter,
   getAllCoverLetters,
@@ -14,12 +15,19 @@ import {
   deleteCoverLetter,
   renameResume,
   renameCoverLetter,
+  getAllHistoryEntries,
+  clearHistory,
+  HistoryEntry,
+  deleteHistoryEntry
 } from "./utils/indexedDB.js";
 import { Button } from "./components/ui/button.js";
 import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Check, X, Pencil, Trash2 } from 'lucide-react';
 
 interface Document {
   id: number;
@@ -39,6 +47,11 @@ function App() {
   const [autoDownload, setAutoDownload] = useState<boolean>(false); // Add state for auto-download setting
   const [useAdditionalContext, setUseAdditionalContext] = useState<boolean>(false); // Add state for additional context setting
   const [selectedFont, setSelectedFont] = useState<'times' | 'helvetica'>('times'); // Add state for PDF font
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]); // Add state for history
+  const [useCustomDefaultFilename, setUseCustomDefaultFilename] = useState<boolean>(false); // State for checkbox
+  const [customDefaultFilename, setCustomDefaultFilename] = useState<string>(''); // State for saved filename
+  const [filenameInput, setFilenameInput] = useState<string>(''); // Consolidated input state
+  const [isEditingCustomFilename, setIsEditingCustomFilename] = useState<boolean>(false); // State for edit mode
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -52,7 +65,15 @@ function App() {
       setResumes(resumes.map((r: { id: number; name: string; }) => ({ id: r.id, name: r.name })));
 
       // Load saved tone and settings
-      chrome.storage.local.get(['tone', 'autoCopy', 'autoDownload', 'useAdditionalContext', 'selectedFont'], (result) => {
+      chrome.storage.local.get([
+        'tone', 
+        'autoCopy', 
+        'autoDownload', 
+        'useAdditionalContext', 
+        'selectedFont', 
+        'useCustomDefaultFilename', 
+        'customDefaultFilename' // Load new settings
+      ], (result) => {
         if (result.tone) {
            // Validate loaded tone against defined types
            const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
@@ -95,6 +116,13 @@ function App() {
                 chrome.storage.local.set({ selectedFont: 'times' });
             }
         }
+
+        // Load custom default filename settings
+        setUseCustomDefaultFilename(!!result.useCustomDefaultFilename);
+        const loadedFilename = result.customDefaultFilename || '';
+        setCustomDefaultFilename(loadedFilename); 
+        setFilenameInput(loadedFilename); // Initialize input state
+        console.log('Loaded custom default filename setting:', !!result.useCustomDefaultFilename, 'Name:', loadedFilename );
       });
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -105,9 +133,22 @@ function App() {
     }
   };
 
-  // Load letters from IndexedDB on mount
+  // Function to load history entries
+  const loadHistory = async () => {
+     // No need for setIsLoading here as loadLetters handles the main loading state
+     try {
+       const entries = await getAllHistoryEntries();
+       setHistoryEntries(entries);
+     } catch (error) {
+       console.error('Failed to load history entries:', error);
+       setHistoryEntries([]); // Ensure empty state on error
+     }
+  };
+
+  // Load letters and history from IndexedDB on mount
   useEffect(() => {
     loadLetters();
+    loadHistory(); // Load history as well
   }, []);
 
   // This handler now *only* adds Cover Letters
@@ -192,6 +233,62 @@ function App() {
     });
   };
 
+  // Handler for clearing the history store
+  const handleClearHistory = async () => {
+    if (window.confirm('Are you sure you want to clear ALL generation history? This cannot be undone.')) {
+      try {
+        await clearHistory();
+        setHistoryEntries([]); // Clear state
+        // Optionally show a success message
+      } catch (error) {
+        console.error('Failed to clear history:', error);
+        // Optionally show an error message
+      }
+    }
+  };
+
+  // Handler for deleting a single history entry
+  const handleDeleteHistoryEntry = async (id: number) => {
+    // Optional: Confirm before deleting
+    // if (!window.confirm('Are you sure you want to delete this history entry?')) {
+    //   return;
+    // }
+    try {
+      await deleteHistoryEntry(id);
+      setHistoryEntries(prevEntries => prevEntries.filter(entry => entry.id !== id));
+    } catch (error) {
+      console.error(`Failed to delete history entry ${id}:`, error);
+      // Optionally show an error message to the user
+    }
+  };
+
+  // --- Handlers for Custom Default Filename ---
+  const handleSaveCustomFilename = () => {
+    const finalName = filenameInput.trim(); // Save from the input state
+    setCustomDefaultFilename(finalName);
+    chrome.storage.local.set({ customDefaultFilename: finalName }, () => {
+      console.log('Custom default filename saved:', finalName);
+      setIsEditingCustomFilename(false);
+    });
+  };
+
+  const handleCancelCustomFilenameEdit = () => {
+    setFilenameInput(customDefaultFilename); // Reset input state to saved value
+    setIsEditingCustomFilename(false);
+  };
+
+  const handleClearCustomFilename = () => {
+     if (window.confirm('Are you sure you want to clear the custom default filename?')) {
+        setCustomDefaultFilename('');
+        setFilenameInput(''); // Clear input state
+        setIsEditingCustomFilename(false); // Exit edit mode if active
+        chrome.storage.local.remove('customDefaultFilename', () => {
+           console.log('Custom default filename cleared.');
+        });
+     }
+  };
+  // ------------------------------------------
+
   return (
     <div className="App flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground rounded-lg shadow-md">
       {/* Loading State */}
@@ -241,6 +338,17 @@ function App() {
                   <GenerationView 
                     autoDownload={autoDownload} // Pass down autoDownload prop
                     useAdditionalContext={useAdditionalContext} // Pass down additional context setting
+                    useCustomDefaultFilename={useCustomDefaultFilename}
+                    customDefaultFilename={customDefaultFilename}
+                  />
+                }
+
+                {/* History View */} 
+                {activeView === 'history' &&
+                  <HistoryView 
+                    entries={historyEntries}
+                    onClearHistory={handleClearHistory}
+                    onDeleteEntry={handleDeleteHistoryEntry}
                   />
                 }
 
@@ -353,7 +461,112 @@ function App() {
                             />
                           </div>
                         </div>
+                        {/* --- Custom Default Filename Setting (Moved into main block) --- */}
+                      {/* Main Checkbox Row */}
+                      <div className="flex items-center space-x-4">
+                        <Label htmlFor="custom-default-filename-checkbox" className="flex-grow">
+                          Use Custom Default Filename for PDF Downloads?
+                        </Label>
+                        <div className="ml-auto flex items-center space-x-2">
+                            <Checkbox
+                              id="custom-default-filename-checkbox"
+                              checked={useCustomDefaultFilename}
+                              onCheckedChange={(checked) => {
+                                const isChecked = !!checked;
+                                setUseCustomDefaultFilename(isChecked);
+                                chrome.storage.local.set({ useCustomDefaultFilename: isChecked });
+                                console.log('Use custom default filename setting saved:', isChecked);
+                              }}
+                            />
+                        </div>
                       </div>
+
+                      {/* Conditional Input/Edit Section - Rendered below if checkbox is checked */} 
+                      {useCustomDefaultFilename && (
+                        <div className="pl-7 mt-3 space-y-2"> {/* Add margin-top (mt-3) here */} 
+                          {customDefaultFilename && !isEditingCustomFilename ? (
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                readOnly
+                                value={customDefaultFilename}
+                                className="flex-grow h-8 text-sm bg-muted border-muted"
+                              />
+                              <TooltipProvider delayDuration={100}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" onClick={() => { 
+                                      setFilenameInput(customDefaultFilename); // Ensure input state matches before edit
+                                      setIsEditingCustomFilename(true); 
+                                    }} className="h-8 w-8">
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent><p>Edit</p></TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={handleClearCustomFilename}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent><p>Clear</p></TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          ) : (
+                            // Input/Edit Mode
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                id="custom-default-filename-input"
+                                type="text"
+                                placeholder="default: cover_letter[timestamp]"
+                                value={filenameInput} // Always use filenameInput state
+                                onChange={(e) => setFilenameInput(e.target.value)} // Always update filenameInput state
+                                className="flex-grow h-8 text-sm bg-background"
+                              />
+                              {isEditingCustomFilename ? (
+                                 <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        {/* Disable save if input hasn't changed from original or is empty */}
+                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-primary text-primary-foreground" disabled={!filenameInput.trim() || filenameInput.trim() === customDefaultFilename}>
+                                          <Check className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent><p>Save</p></TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" onClick={handleCancelCustomFilenameEdit} className="h-8 w-8">
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent><p>Cancel</p></TooltipContent>
+                                    </Tooltip>
+                                 </TooltipProvider>
+                              ) : (
+                                // Show save button only if there's text and it's not the edit mode
+                                filenameInput.trim() && (
+                                  <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-primary text-primary-foreground">
+                                          <Check className="h-4 w-4" />
+                                        </Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent><p>Save</p></TooltipContent>
+                                    </Tooltip>
+                                   </TooltipProvider>
+                                )
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {/* --- End Custom Default Filename Setting --- */}
+
+                      </div>
+
                       {/* Bottom actions: clear data & API key */}
                       <div className="space-y-6 pt-4 border-t">
                         {/* Clear API Key Setting - Grouping button and text */}

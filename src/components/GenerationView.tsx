@@ -4,7 +4,8 @@ import {
   getAllCoverLetters,
   getCoverLetterContent,
   getAllResumes,
-  getResumeContent
+  getResumeContent,
+  addHistoryEntry // Import the new function
 } from '../utils/indexedDB'; // Assuming indexedDB.js/.ts exists
 import OpenAI from 'openai';
 import { jsPDF } from 'jspdf';
@@ -32,9 +33,17 @@ interface DocumentInfo {
 interface GenerationViewProps {
   autoDownload: boolean; // Prop needed for automatic PDF download
   useAdditionalContext: boolean; // Prop to control using additional context
+  // Props for custom default filename
+  useCustomDefaultFilename: boolean;
+  customDefaultFilename: string;
 }
 
-const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload, useAdditionalContext }) => {
+const GenerationView: React.FC<GenerationViewProps> = ({ 
+  autoDownload, 
+  useAdditionalContext, 
+  useCustomDefaultFilename, // Destructure new props
+  customDefaultFilename 
+}) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
   const [resumes, setResumes] = useState<DocumentInfo[]>([]);
@@ -48,6 +57,7 @@ const GenerationView: React.FC<GenerationViewProps> = ({ autoDownload, useAdditi
   const [additionalContext, setAdditionalContext] = useState<string>(''); // State for additional context
   const [isEditingApiKey, setIsEditingApiKey] = useState<boolean>(false); // State for editing API key
   const [originalApiKey, setOriginalApiKey] = useState<string>(''); // Store key before editing
+  const [pdfFilename, setPdfFilename] = useState<string>(''); // State for optional PDF filename
 
   // Loading/Error States
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
@@ -238,13 +248,13 @@ ${resumeContent}
 Instructions:
 1. Adopt the requested tone throughout (professional, friendly, or casual).
 2. Structure:
-   - Greeting: “Dear Hiring Manager,” (or a provided name).
-   - Opening: One sentence stating the role and why you’re excited, weaving in additional context.
+   - Greeting: "Dear Hiring Manager," (or a provided name).
+   - Opening: One sentence stating the role and why you're excited, weaving in additional context.
    - Body: Two short paragraphs:
      • Match your top 2–3 achievements or skills (from the resume) to the key requirements.
      • Draw inspiration from the base cover letter, but rewrite in fresh language.
    - Closing: Reiterate enthusiasm, mention fit or context, and include a call to action.
-   - Signature: “Sincerely,” or “Best regards,” + candidate name.
+   - Signature: "Sincerely," or "Best regards," + candidate name.
 3. Length & Format:
    - ~300–400 words, 3–4 paragraphs.
    - Do not repeat the job description verbatim; integrate its language naturally.
@@ -331,14 +341,39 @@ ${resumeContent}`;
           });
           const output = response.choices[0]?.message?.content || '';
           setGeneratedCoverLetterOutput(output);
-          if(autoDownload && output) {
-            // Retrieve font setting before generating PDF
-            chrome.storage.local.get('selectedFont', (result) => {
-                const fontToUse: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
-                const doc = generatePDF(output, fontToUse); 
-                doc.save('cover_letter.pdf');
-            });
-         }
+
+          // --- Save to History --- 
+          // Get font used for generation
+          chrome.storage.local.get('selectedFont', (result) => {
+             const fontUsed: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
+             // Determine filename *before* saving to history
+             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+             
+             // --- Filename Logic with updated priority ---
+             let determinedFilename: string;
+             if (pdfFilename.trim()) {
+               // Priority 1: Optional filename input provided
+               determinedFilename = `${pdfFilename.trim().replace(/\.pdf$/i, '')}.pdf`;
+             } else if (useCustomDefaultFilename && customDefaultFilename.trim()) {
+               // Priority 2: Custom default filename setting enabled and set
+               determinedFilename = `${customDefaultFilename.trim().replace(/\.pdf$/i, '')}.pdf`; // NO timestamp
+             } else {
+               // Priority 3: Fallback to hardcoded default + timestamp
+               determinedFilename = `cover_letter_${timestamp}.pdf`;
+             }
+             // -------------------------------------------
+             
+             // Add entry to history (fire and forget, errors logged in indexedDB.ts)
+             addHistoryEntry(output, fontUsed, determinedFilename)
+               .catch(err => console.error("Failed to save to history:", err)); 
+             
+             // --- Auto Download Logic (using the retrieved font and filename) ---
+             if(autoDownload && output) {
+                const doc = generatePDF(output, fontUsed); 
+                doc.save(determinedFilename); // Use the determined filename
+             }
+          });
+          // -----------------------
 
      } catch (err: any) {
          console.error("Generate Automatic Error:", err);
@@ -699,7 +734,24 @@ ${resumeContent}`;
                   )}
 
                  {/* Generate Button */}
-                 <div>
+                 <div className="mt-4">
+                   {/* Optional Filename Input */}
+                   <div className="mb-4 space-y-1.5">
+                     <Label htmlFor="pdf-filename" className="text-xs text-muted-foreground">
+                       Optional PDF Filename (leave blank for default)
+                     </Label>
+                     <Input
+                       id="pdf-filename"
+                       type="text"
+                       placeholder="My Custom Cover Letter"
+                       value={pdfFilename}
+                       onChange={(e) => setPdfFilename(e.target.value)}
+                       className="h-8 text-sm bg-white"
+                       disabled={isGeneratingAutomatic} // Disable during generation
+                     />
+                   </div>
+
+                   {/* Original Generate Button */}
                    <Button
                      onClick={handleGenerateAutomatic}
                      disabled={isGeneratingAutomatic || !apiKey || !validateApiKey(apiKey) || !selectedCoverLetterId || !selectedResumeId}
@@ -734,7 +786,23 @@ ${resumeContent}`;
                                         // Retrieve font setting before generating PDF
                                         chrome.storage.local.get('selectedFont', (result) => {
                                             const fontToUse: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
-                                            generatePDF(generatedCoverLetterOutput, fontToUse).save('cover_letter.pdf');
+                                            const doc = generatePDF(generatedCoverLetterOutput, fontToUse);
+                                            // Determine filename
+                                            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                                            // --- Filename Logic with updated priority ---
+                                            let determinedFilename: string;
+                                            if (pdfFilename.trim()) {
+                                              // Priority 1: Optional filename input provided
+                                              determinedFilename = `${pdfFilename.trim().replace(/\.pdf$/i, '')}.pdf`;
+                                            } else if (useCustomDefaultFilename && customDefaultFilename.trim()) {
+                                              // Priority 2: Custom default filename setting enabled and set
+                                              determinedFilename = `${customDefaultFilename.trim().replace(/\.pdf$/i, '')}.pdf`; // NO timestamp
+                                            } else {
+                                              // Priority 3: Fallback to hardcoded default + timestamp
+                                              determinedFilename = `cover_letter_${timestamp}.pdf`;
+                                            }
+                                            // -------------------------------------------
+                                            doc.save(determinedFilename); // Use the determined filename
                                         });
                                      }}
                                      className="h-8 w-8"
@@ -755,9 +823,10 @@ ${resumeContent}`;
                         rows={12}
                         className="text-sm bg-white"
                        />
-                    </div>
-                 )}
-                 {/* Loading Skeleton for Output */}
+                       {/* Optional Filename Input - REMOVED FROM HERE */}
+                     </div>
+                  )}
+                  {/* Loading Skeleton for Output */}
                   {(isGeneratingAutomatic && !automaticError && !apiKeyError) && (
                     <div className="space-y-2 pt-4 border-t">
                        <div className="flex items-center justify-between">

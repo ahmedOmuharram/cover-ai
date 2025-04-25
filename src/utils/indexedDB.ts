@@ -3,13 +3,23 @@ import * as pdfjsLib from 'pdfjs-dist';
 const DB_NAME = 'CoverLetterDB';
 const COVER_LETTER_STORE = 'coverLetters';
 const RESUME_STORE = 'resumes';
-const DB_VERSION = 1;
+const HISTORY_STORE = 'generationHistory';
+const DB_VERSION = 2;
 
 interface DocumentRecord {
   id: number;
   name: string;
   content: string;
   // TODO: Add other fields as needed
+}
+
+// Define interface for History Entry
+export interface HistoryEntry {
+  id: number;
+  timestamp: number;
+  pdfContent: string;
+  font: 'times' | 'helvetica';
+  filename: string;
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -39,6 +49,12 @@ const getDb = (): Promise<IDBDatabase> => {
       if (!db.objectStoreNames.contains(RESUME_STORE)) {
         db.createObjectStore(RESUME_STORE, { keyPath: 'id', autoIncrement: true });
         console.log(`Object store ${RESUME_STORE} created.`);
+      }
+      // Create history store if it doesn't exist (handles version upgrade)
+      if (!db.objectStoreNames.contains(HISTORY_STORE)) {
+        const historyStore = db.createObjectStore(HISTORY_STORE, { keyPath: 'id', autoIncrement: true });
+        historyStore.createIndex('timestamp', 'timestamp', { unique: false }); // Index for sorting
+        console.log(`Object store ${HISTORY_STORE} created with timestamp index.`);
       }
     };
 
@@ -360,3 +376,102 @@ export const renameCoverLetter = (id: number, newName: string) => renameDocument
 // Export specific functions for resumes
 export const deleteResume = (id: number) => deleteDocument(RESUME_STORE, id);
 export const renameResume = (id: number, newName: string) => renameDocument(RESUME_STORE, id, newName);
+
+// --- History Functions ---
+
+/**
+ * Adds a generation history entry to the database.
+ * @param {string} pdfContent - The generated text content of the PDF.
+ * @param {'times' | 'helvetica'} font - The font used for the PDF.
+ * @param {string} filename - The filename used when saving the PDF.
+ * @returns {Promise<number>} A promise that resolves with the ID of the new history entry.
+ */
+export const addHistoryEntry = async (pdfContent: string, font: 'times' | 'helvetica', filename: string): Promise<number> => {
+  const db = await getDb();
+  const timestamp = Date.now();
+  console.log(`Adding history entry at ${new Date(timestamp).toISOString()} with filename: ${filename}`);
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(HISTORY_STORE, 'readwrite');
+    const store = transaction.objectStore(HISTORY_STORE);
+    const historyData = { timestamp, pdfContent, font, filename };
+    const request = store.add(historyData);
+
+    request.onsuccess = (event) => {
+      console.log(`History entry added with id:`, (event.target as IDBRequest).result);
+      resolve((event.target as IDBRequest).result as number);
+    };
+    request.onerror = (event) => {
+      console.error(`Error adding history entry:`, (event.target as IDBRequest).error);
+      reject(`Error adding history entry`);
+    };
+  });
+};
+
+/**
+ * Retrieves all history entries from the database, sorted by timestamp descending.
+ * @returns {Promise<HistoryEntry[]>} A promise that resolves with an array of history entries.
+ */
+export const getAllHistoryEntries = async (): Promise<HistoryEntry[]> => {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(HISTORY_STORE, 'readonly');
+    const store = transaction.objectStore(HISTORY_STORE);
+    const index = store.index('timestamp'); // Use the timestamp index
+    const request = index.getAll(); // Get all entries, sorted by index is default but we reverse
+
+    request.onsuccess = (event) => {
+      const records = (event.target as IDBRequest).result as HistoryEntry[];
+      console.log(`Successfully retrieved ${records.length} history entries.`);
+      resolve(records.reverse()); // Reverse for descending order (newest first)
+    };
+    request.onerror = (event) => {
+      console.error(`Error getting history entries:`, (event.target as IDBRequest).error);
+      reject(`Error getting history entries`);
+    };
+  });
+};
+
+/**
+ * Clears all entries from the history store.
+ * @returns {Promise<void>} A promise that resolves when the history store is cleared.
+ */
+export const clearHistory = async (): Promise<void> => {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(HISTORY_STORE, 'readwrite');
+    const store = transaction.objectStore(HISTORY_STORE);
+    const request = store.clear();
+
+    request.onsuccess = () => {
+      console.log(`History store cleared.`);
+      resolve();
+    };
+    request.onerror = (event) => {
+      console.error(`Error clearing history store:`, (event.target as IDBRequest).error);
+      reject(`Error clearing history store`);
+    };
+  });
+};
+
+/**
+ * Deletes a single history entry by its ID.
+ * @param {number} id - The ID of the history entry to delete.
+ * @returns {Promise<void>} A promise that resolves when the entry is deleted.
+ */
+export const deleteHistoryEntry = async (id: number): Promise<void> => {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(HISTORY_STORE, 'readwrite');
+    const store = transaction.objectStore(HISTORY_STORE);
+    const request = store.delete(id);
+
+    request.onsuccess = () => {
+      console.log(`History entry with id ${id} deleted.`);
+      resolve();
+    };
+    request.onerror = (event) => {
+      console.error(`Error deleting history entry ${id}:`, (event.target as IDBRequest).error);
+      reject(`Error deleting history entry`);
+    };
+  });
+};
