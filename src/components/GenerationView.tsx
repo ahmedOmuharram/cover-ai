@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+
 // Lucide Icons
 import { Wand2, Loader2, AlertTriangle, ClipboardCopy, Check, KeyRound, Save, Sparkles, Download, Pencil, Trash2, X } from 'lucide-react';
 
@@ -39,16 +40,18 @@ interface GenerationViewProps {
   pdfFontSize: number; // Add font size prop
   // Add callback prop
   onGenerationComplete: (data: { content: string; font: 'times' | 'helvetica'; filename: string }) => void;
+  injectedJobDescription?: string; // Add from incoming changes
 }
 
 const GenerationView: React.FC<GenerationViewProps> = ({ 
   autoDownload, 
   useAdditionalContext, 
-  useCustomDefaultFilename, // Destructure new props
+  useCustomDefaultFilename, 
   customDefaultFilename, 
   maxWords,
-  pdfFontSize, // Destructure font size
-  onGenerationComplete // Destructure callback
+  pdfFontSize,
+  onGenerationComplete,
+  injectedJobDescription // Destructure the new prop
 }) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
@@ -130,6 +133,19 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   useEffect(() => { // Cleanup toast timeout
     return () => { if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current); };
   }, []);
+
+  useEffect(() => {
+    if (injectedJobDescription) {
+      setJobDescriptionText((prev) => {
+        if (!prev) {
+          chrome.storage.session.set({ jobDescriptionText: injectedJobDescription });
+          return injectedJobDescription;
+        }
+        return prev;
+      });
+    }
+  }, [injectedJobDescription]);
+  
 
   useEffect(() => { // Load initial data
     const loadData = async () => {

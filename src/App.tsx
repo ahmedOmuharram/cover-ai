@@ -46,6 +46,8 @@ function App() {
   const [customDefaultFilename, setCustomDefaultFilename] = useState<string>(''); // State for saved filename
   const [maxWords, setMaxWords] = useState<number>(270); // Update default state to 270
   const [pdfFontSize, setPdfFontSize] = useState<number>(12); // Add state for font size
+  const [incomingJobDescription, setIncomingJobDescription] = useState('');
+
 
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
@@ -156,6 +158,42 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    const handleMessage = (message: any, sender: any, sendResponse: any) => {
+      if (message.type === 'JOB_DESCRIPTION_TEXT') {
+        console.log('[App.tsx] Message received from background:', message.payload?.text);
+        if (message.payload?.text) {
+          setIncomingJobDescription(message.payload.text);
+        }
+      }
+    };
+  
+    chrome.runtime.onMessage.addListener(handleMessage);
+  
+    // Clean up the listener when component unmounts
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleMessage);
+    };
+  }, []);
+
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      chrome.storage.local.get(['jobDescription', 'jobDescriptionSource'], (result) => {
+        if (result.jobDescription) {
+          console.log('[App] Detected job description from storage:', result.jobDescription);
+          setIncomingJobDescription(result.jobDescription);
+          chrome.storage.local.remove(['jobDescription']); // clear so it doesn’t keep firing
+        }
+      });
+    }, 500); // check every half second
+  
+    return () => clearInterval(interval); // cleanup on unmount
+  }, []);
+  
+  
+
+  
   // Function to load history entries
   const loadHistory = async () => {
      // No need for setIsLoading here as loadLetters handles the main loading state
@@ -347,7 +385,14 @@ function App() {
     <div className="App flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground rounded-lg shadow-md">
       {/* Loading State */}
       {isLoading && <div className="loading-indicator flex-grow flex items-center justify-center">Loading...</div>}
-
+      {/*
+      {incomingJobDescription && (
+        <div className="p-4 bg-white rounded-lg shadow text-black">
+          <h2 className="text-xl font-bold mb-2">Job Description Found:</h2>
+          <p>{incomingJobDescription}</p>
+        </div>
+      )}
+      */}
       {/* Content Area - Render based on loading and letters state */}
       {!isLoading && (
         <>
@@ -391,6 +436,7 @@ function App() {
                 {activeView === 'generate' && 
                   <GenerationView 
                     autoDownload={autoDownload} // Pass down autoDownload prop
+                    injectedJobDescription={incomingJobDescription}
                     useAdditionalContext={useAdditionalContext} // Pass down additional context setting
                     useCustomDefaultFilename={useCustomDefaultFilename}
                     customDefaultFilename={customDefaultFilename}

@@ -1,3 +1,4 @@
+
 // This function is called when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(() => {
   // Create a context menu item
@@ -22,15 +23,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       .then(() => {
         console.log("Side panel opened for tab:", tab.id);
         // Send a message to the side panel with the highlighted text (which takes priority)
-        setTimeout(() => {
-            chrome.runtime.sendMessage({
-                type: "JOB_DESCRIPTION_TEXT", // Message type identifier
-                payload: { 
-                  text: selectedText,
-                  source: 'highlight' // Mark as coming from user highlight
-                }
-            }).catch(error => console.error('Error sending message:', error));
-        }, 100); // 100ms delay
+        chrome.storage.local.set({
+          jobDescription: selectedText,
+          jobDescriptionSource: 'highlight'
+        });
       })
       .catch(error => console.error('Error opening side panel or sending message:', error));
   }
@@ -119,6 +115,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     lastScrapedJobDescription = message.payload.text;
     
     // If the tab has our side panel open, send the description to it
+    /*
     if (sender.tab && sender.tab.id) {
       // Try to open the side panel for this tab
       chrome.sidePanel.open({ tabId: sender.tab.id })
@@ -142,11 +139,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.action.setBadgeBackgroundColor({ color: '#CB112D', tabId: sender.tab.id });
       chrome.action.setBadgeTextColor({ color: '#FFFFFF', tabId: sender.tab.id });
     }
-    
+    */
+    if (sender.tab && sender.tab.id) {
+      // No side panel open attempt here! ❌
+      chrome.storage.local.set({
+        jobDescription: lastScrapedJobDescription,
+        jobDescriptionSource: 'scraper'
+      });
+
+      
+      chrome.action.setBadgeText({ text: '!', tabId: sender.tab.id });
+      chrome.action.setBadgeBackgroundColor({ color: '#CB112D', tabId: sender.tab.id });
+      chrome.action.setBadgeTextColor({ color: '#FFFFFF', tabId: sender.tab.id });
+    }
+
     // Send a response to the content script
     sendResponse({ status: 'received' });
     return true; // Required to use sendResponse asynchronously
   }
 });
+
+
+
 
 console.log("Background script loaded and badge logic added.");
