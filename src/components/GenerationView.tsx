@@ -434,7 +434,7 @@ ${resumeContent}`;
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt }
               ],
-              ...(model === 'gpt-4o' ? { temperature: 0.7 } : {})
+              ...(model === 'gpt-4o' ? { temperature: 0.7 } : {temperature: 1})
             })
           });
           const data = await response.json();

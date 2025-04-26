@@ -144,7 +144,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                     <SelectValue placeholder="Select AI Model" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="openai-gpt4">OpenAI GPT-4</SelectItem>
+                    <SelectItem value="openai-gpt4">OpenAI GPT-4o</SelectItem>
                     <SelectItem value="openai-o4mini">OpenAI o4 Mini</SelectItem>
                     <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
                   </SelectContent>
