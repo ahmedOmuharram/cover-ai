@@ -421,7 +421,7 @@ ${resumeContent}`;
 
         let output = '';
         if (selectedModel === 'openai-gpt4' || selectedModel === 'openai-o4mini') {
-          const model = selectedModel === 'openai-gpt4' ? 'gpt-4o' : 'openai-o4mini';
+          const model = selectedModel === 'openai-gpt4' ? 'gpt-4o' : 'o4-mini';
           const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
