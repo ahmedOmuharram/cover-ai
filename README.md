@@ -58,4 +58,5 @@ Cover AI is a Chrome extension that helps you write better cover letters faster 
 
 ## Known Bugs/Incomplete Features
 
-- TBD
+- No explicit bugs as far as we know
+- Want to include more model support in the future
