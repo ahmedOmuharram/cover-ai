@@ -366,6 +366,12 @@ Please generate the complete cover letter now.
             ? ` Also consider the following additional context provided by the user: ${additionalContext}.`
             : '';
 
+        const currentDate = new Date().toLocaleDateString('en-US', { 
+          month: '2-digit',
+          day: '2-digit',
+          year: 'numeric'
+        });
+
         const systemPrompt = `You are an expert cover letter writer. 
         Your task is to rewrite the provided cover letter based *only* on the 
         provided resume and job description.  Ensure the final letter adheres to 
@@ -374,7 +380,7 @@ Please generate the complete cover letter now.
          Adapt the tone to be ${tone}. 
         Keep the original cover letter's structure and key points where possible, 
         but tailor the content specifically to the job description, highlighting 
-        relevant skills and experiences from the resume.${contextInstruction} 
+        relevant skills and experiences from the resume. Additionally, make sure to use the date ${currentDate} at the top of the letter.${contextInstruction} 
         Respond only with the rewritten cover letter text, nothing else. However, change the wording as needed to match the ${maxWords} word count.`;
 
         const userPrompt = `Job Description:
