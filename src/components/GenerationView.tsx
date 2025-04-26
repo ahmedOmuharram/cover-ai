@@ -277,6 +277,11 @@ const GenerationView: React.FC<GenerationViewProps> = ({
          if (coverLetterContent === null || resumeContent === null) {
             throw new Error("Could not retrieve content for selected documents.");
          }
+         const currentDate = new Date().toLocaleDateString('en-US', { 
+           month: '2-digit',
+           day: '2-digit',
+           year: 'numeric'
+         });
          const prompt = `
 You are a professional career coach and expert resume writer.  Use the inputs below (in order) to craft a tailored cover letter.
 
@@ -300,6 +305,7 @@ ${resumeContent}
 Instructions:
 1. Adopt the requested tone throughout (professional, friendly, or casual).
 2. Structure:
+   - Date: Use ${currentDate} at the top of the letter
    - Greeting: "Dear Hiring Manager," (or a provided name).
    - Opening: One sentence stating the role and why you're excited, weaving in additional context.
    - Body: Two short paragraphs:
