@@ -47,6 +47,7 @@ function App() {
   const [maxWords, setMaxWords] = useState<number>(270); // Update default state to 270
   const [pdfFontSize, setPdfFontSize] = useState<number>(12); // Add state for font size
   const [incomingJobDescription, setIncomingJobDescription] = useState('');
+  const [selectedModel, setSelectedModel] = useState<'openai-gpt4' | 'openai-o4mini' | 'gemini-pro' | 'gemini-1.5-flash'>('openai-gpt4');
 
 
   // Function to load letters (used in useEffect and after clearing)
@@ -70,7 +71,8 @@ function App() {
         'useCustomDefaultFilename', 
         'customDefaultFilename', // Load new settings
         'maxWords', // Load max words setting
-        'pdfFontSize' // Load font size setting
+        'pdfFontSize', // Load font size setting
+        'selectedModel' // Load selected model setting
       ], (result) => {
         if (result.tone) {
            // Validate loaded tone against defined types
@@ -148,6 +150,20 @@ function App() {
              chrome.storage.local.set({ pdfFontSize: 12 });
            }
         }
+
+        // Load selected model setting
+        const validModels: Array<'openai-gpt4' | 'openai-o4mini' | 'gemini-pro' | 'gemini-1.5-flash'> = ['openai-gpt4', 'openai-o4mini', 'gemini-pro', 'gemini-1.5-flash'];
+        if (result.selectedModel && validModels.includes(result.selectedModel)) {
+            setSelectedModel(result.selectedModel);
+            console.log('Loaded selected model:', result.selectedModel);
+        } else {
+            setSelectedModel('openai-gpt4'); // Default if not found or invalid
+            console.log('No valid selected model found in storage, defaulting to openai-gpt4.');
+            // Optionally save the default back if it wasn't found
+            if (result.selectedModel === undefined) {
+                chrome.storage.local.set({ selectedModel: 'openai-gpt4' });
+            }
+        }
       });
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -183,7 +199,7 @@ function App() {
         if (result.jobDescription) {
           console.log('[App] Detected job description from storage:', result.jobDescription);
           setIncomingJobDescription(result.jobDescription);
-          chrome.storage.local.remove(['jobDescription']); // clear so it doesn’t keep firing
+          chrome.storage.local.remove(['jobDescription']); // clear so it doesn't keep firing
         }
       });
     }, 500); // check every half second
@@ -367,6 +383,12 @@ function App() {
     });
   };
 
+  // Add handler for model selection
+  const handleSetSelectedModel = (model: 'openai-gpt4' | 'openai-o4mini' | 'gemini-pro' | 'gemini-1.5-flash') => {
+    setSelectedModel(model);
+    chrome.storage.local.set({ selectedModel: model });
+  };
+
   // Callback function for when generation is complete in GenerationView
   const handleGenerationComplete = async (data: { content: string; font: 'times' | 'helvetica'; filename: string }) => {
     try {
@@ -435,14 +457,15 @@ function App() {
                 {/* Combined Generation View */}
                 {activeView === 'generate' && 
                   <GenerationView 
-                    autoDownload={autoDownload} // Pass down autoDownload prop
+                    autoDownload={autoDownload}
                     injectedJobDescription={incomingJobDescription}
-                    useAdditionalContext={useAdditionalContext} // Pass down additional context setting
+                    useAdditionalContext={useAdditionalContext}
                     useCustomDefaultFilename={useCustomDefaultFilename}
                     customDefaultFilename={customDefaultFilename}
-                    maxWords={maxWords} // Pass maxWords prop
-                    pdfFontSize={pdfFontSize} // Pass font size prop
-                    onGenerationComplete={handleGenerationComplete} // Pass callback handler
+                    maxWords={maxWords}
+                    pdfFontSize={pdfFontSize}
+                    onGenerationComplete={handleGenerationComplete}
+                    selectedModel={selectedModel}
                   />
                 }
 
@@ -462,22 +485,24 @@ function App() {
                     tone={tone}
                     handleToneChange={handleToneChange}
                     selectedFont={selectedFont}
-                    setSelectedFont={handleSetSelectedFont} // Pass wrapped handler
+                    setSelectedFont={handleSetSelectedFont}
                     autoCopy={autoCopy}
-                    setAutoCopy={handleSetAutoCopy} // Pass wrapped handler
+                    setAutoCopy={handleSetAutoCopy}
                     autoDownload={autoDownload}
-                    setAutoDownload={handleSetAutoDownload} // Pass wrapped handler
+                    setAutoDownload={handleSetAutoDownload}
                     useAdditionalContext={useAdditionalContext}
-                    setUseAdditionalContext={handleSetUseAdditionalContext} // Pass wrapped handler
+                    setUseAdditionalContext={handleSetUseAdditionalContext}
                     useCustomDefaultFilename={useCustomDefaultFilename}
-                    setUseCustomDefaultFilename={handleSetUseCustomDefaultFilename} // Pass wrapped handler
+                    setUseCustomDefaultFilename={handleSetUseCustomDefaultFilename}
                     customDefaultFilename={customDefaultFilename}
-                    setCustomDefaultFilename={handleSetCustomDefaultFilename} // Pass specific setter
+                    setCustomDefaultFilename={handleSetCustomDefaultFilename}
                     handleClearDatabase={handleClearDatabase}
-                    maxWords={maxWords} // Pass maxWords state
-                    handleSetMaxWords={handleSetMaxWords} // Pass handler
-                    pdfFontSize={pdfFontSize} // Pass font size state
-                    handleSetPdfFontSize={handleSetPdfFontSize} // Pass handler
+                    maxWords={maxWords}
+                    handleSetMaxWords={handleSetMaxWords}
+                    pdfFontSize={pdfFontSize}
+                    handleSetPdfFontSize={handleSetPdfFontSize}
+                    selectedModel={selectedModel}
+                    setSelectedModel={handleSetSelectedModel}
                   />
                 }
               </div>

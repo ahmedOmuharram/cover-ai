@@ -41,6 +41,7 @@ interface GenerationViewProps {
   // Add callback prop
   onGenerationComplete: (data: { content: string; font: 'times' | 'helvetica'; filename: string }) => void;
   injectedJobDescription?: string; // Add from incoming changes
+  selectedModel: 'openai-gpt4' | 'openai-o4mini' | 'gemini-pro' | 'gemini-1.5-flash';
 }
 
 const GenerationView: React.FC<GenerationViewProps> = ({ 
@@ -51,7 +52,8 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   maxWords,
   pdfFontSize,
   onGenerationComplete,
-  injectedJobDescription // Destructure the new prop
+  injectedJobDescription,
+  selectedModel // Add selectedModel to destructuring
 }) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
@@ -97,7 +99,11 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   };
 
   const validateApiKey = (key: string): boolean => {
-    return /^sk-/.test(key);
+    if (selectedModel.startsWith('openai')) {
+      return /^sk-/.test(key);
+    } else {
+      return key.length > 0; // Gemini keys don't have a specific prefix
+    }
   };
 
   const generatePDF = (text: string, font: 'times' | 'helvetica' = 'times') => {
@@ -155,25 +161,26 @@ const GenerationView: React.FC<GenerationViewProps> = ({
         setCoverLetters(clData.map((d: DocumentInfo) => ({ id: d.id, name: d.name })));
         setResumes(resumeData.map((r: DocumentInfo) => ({ id: r.id, name: r.name })));
 
-        // Load API key from local storage
-        chrome.storage.local.get(['openaiApiKey', 'tone', 'autoCopy'], (localResult) => {
-          if (localResult.openaiApiKey) {
-            const loadedKey = localResult.openaiApiKey;
+        // Load API key from local storage based on selected model
+        const storageKey = selectedModel === 'openai-gpt4' ? 'openaiApiKey' : selectedModel === 'openai-o4mini' ? 'openaiApiKey' : selectedModel === 'gemini-pro' ? 'geminiApiKey' : 'geminiApiKey';
+        chrome.storage.local.get([storageKey, 'tone', 'autoCopy'], (localResult) => {
+          if (localResult[storageKey]) {
+            const loadedKey = localResult[storageKey];
             setApiKey(loadedKey);
             if (!validateApiKey(loadedKey)) {
-               setApiKeyError("Warning: Saved API key format seems invalid.");
-               setHasSavedApiKey(false); // Treat invalid saved key as not saved
+              setApiKeyError(`Warning: Saved ${selectedModel.startsWith('openai') ? 'OpenAI' : 'Gemini'} API key format seems invalid.`);
+              setHasSavedApiKey(false);
             } else {
-               setApiKeyError('');
-               setOriginalApiKey(loadedKey); // Store originally loaded valid key
-               setHasSavedApiKey(true); // Valid key loaded from storage
+              setApiKeyError('');
+              setOriginalApiKey(loadedKey);
+              setHasSavedApiKey(true);
             }
           } else {
-            setHasSavedApiKey(false); // No key found in storage
+            setHasSavedApiKey(false);
           }
           if (localResult.tone) {
-             const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
-             if (validTones.includes(localResult.tone)) setTone(localResult.tone as ToneSetting);
+            const validTones: ToneSetting[] = ['professional', 'friendly', 'casual'];
+            if (validTones.includes(localResult.tone)) setTone(localResult.tone as ToneSetting);
           }
           setAutoCopy(!!localResult.autoCopy);
         });
@@ -231,17 +238,21 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   // --- Event Handlers (To be fully implemented) ---
   const handleApiKeyChange = (value: string) => {
     setApiKey(value);
-    // Only show error message, don't trigger saves or state changes based on format
     if (value && !validateApiKey(value)) {
-      setApiKeyError("Invalid OpenAI API key format (should start with sk-).");
+      if (selectedModel.startsWith('openai')) {
+        setApiKeyError("Invalid OpenAI API key format (should start with sk-).");
+      } else {
+        setApiKeyError("Invalid Gemini API key format.");
+      }
     } else {
       setApiKeyError('');
     }
   };
 
   const handleSaveApiKey = () => {
-     if (validateApiKey(apiKey)) {
-      chrome.storage.local.set({ openaiApiKey: apiKey }, () => {
+    if (validateApiKey(apiKey)) {
+      const storageKey = selectedModel === 'openai-gpt4' ? 'openaiApiKey' : selectedModel === 'openai-o4mini' ? 'openaiApiKey' : selectedModel === 'gemini-pro' ? 'geminiApiKey' : 'geminiApiKey';
+      chrome.storage.local.set({ [storageKey]: apiKey }, () => {
         if (chrome.runtime.lastError) {
           console.error('Error saving API key:', chrome.runtime.lastError);
           setApiKeyError('Failed to save API key.');
@@ -250,11 +261,11 @@ const GenerationView: React.FC<GenerationViewProps> = ({
           setOriginalApiKey(apiKey);
           setIsEditingApiKey(false);
           setHasSavedApiKey(true);
-          showToastNotification('API Key saved successfully!');
+          showToastNotification(`${selectedModel.startsWith('openai') ? 'OpenAI' : 'Gemini'} API Key saved successfully!`);
         }
       });
     } else {
-      setApiKeyError("Cannot save invalid API key format.");
+      setApiKeyError(`Cannot save invalid ${selectedModel.startsWith('openai') ? 'OpenAI' : 'Gemini'} API key format.`);
     }
   };
 
@@ -341,8 +352,8 @@ Please generate the complete cover letter now.
      console.log("Generate Automatic clicked");
      try {
         if (!apiKey || !validateApiKey(apiKey)) {
-            setApiKeyError("Valid OpenAI API key is required."); // Set specific API key error
-            throw new Error("Valid OpenAI API key is required.");
+            setApiKeyError("Valid API key is required."); // Set specific API key error
+            throw new Error("Valid API key is required.");
         }
         if (!selectedCoverLetterId || !selectedResumeId) {
             throw new Error("Please select both a cover letter and a resume.");
@@ -359,13 +370,6 @@ Please generate the complete cover letter now.
            throw new Error("Could not retrieve content for selected documents.");
         }
 
-        const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-
-        // Conditionally add additional context to the system prompt
-        const contextInstruction = useAdditionalContext && additionalContext
-            ? ` Also consider the following additional context provided by the user: ${additionalContext}.`
-            : '';
-
         const currentDate = new Date().toLocaleDateString('en-US', { 
           month: '2-digit',
           day: '2-digit',
@@ -377,10 +381,10 @@ Please generate the complete cover letter now.
         provided resume and job description.  Ensure the final letter adheres to 
         strictly approximately ${maxWords}: don't change the word count by too much from that number
         no matter how illogical or logical it is. To iterate: WORD COUNT MAXIMUM AND MINIMUM IS ${maxWords}.
-         Adapt the tone to be ${tone}. 
+         Adapt the tone to be ${tone}. Keep the original cover's header structure exactly the same including spacing, except for the date, which you should change to ${currentDate}.
         Keep the original cover letter's structure and key points where possible, 
         but tailor the content specifically to the job description, highlighting 
-        relevant skills and experiences from the resume. Additionally, make sure to use the date ${currentDate} at the top of the letter.${contextInstruction} 
+        relevant skills and experiences from the resume. ${useAdditionalContext && additionalContext ? ` Also consider the following additional context provided by the user: ${additionalContext}.` : ''} 
         Respond only with the rewritten cover letter text, nothing else. However, change the wording as needed to match the ${maxWords} word count.`;
 
         const userPrompt = `Job Description:
@@ -392,70 +396,79 @@ ${coverLetterContent}
 Resume:
 ${resumeContent}`;
 
-        const response = await openai.chat.completions.create({
-             model: "gpt-4o", // Ensure model is specified
-             messages: [ // Ensure messages are specified
-               { role: "system", content: systemPrompt },
-               { role: "user", content: userPrompt }
-             ],
-             temperature: 0.7
-         }).catch((error) => { // Refined error handling from AutomaticPage
-             console.error("OpenAI API Error:", error);
-             if (error instanceof OpenAI.APIError) {
-                if (error.status === 401) {
-                  throw new Error("Invalid API key. Please check your API key and try again.");
-                } else if (error.status === 429) {
-                  throw new Error("Rate limit exceeded or quota finished. Please check your OpenAI account.");
-                } else {
-                  throw new Error(`API Error: ${error.status} - ${error.message}`);
-                }
-             }
-             throw new Error("An unexpected error occurred while contacting OpenAI.");
-          });
-          const output = response.choices[0]?.message?.content || '';
-          setGeneratedCoverLetterOutput(output);
+        let output = '';
+        if (selectedModel.startsWith('openai')) {
+          const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+          const modelName = selectedModel === 'openai-gpt4' ? 'gpt-4' : 'o4-mini';
+          const response = await openai.chat.completions.create({
+               model: modelName,
+               messages: [
+                 { role: "system", content: systemPrompt },
+                 { role: "user", content: userPrompt }
+               ],
+               temperature: 0.7
+           }).catch((error) => {
+               console.error("OpenAI API Error:", error);
+               if (error instanceof OpenAI.APIError) {
+                  if (error.status === 401) {
+                    throw new Error("Invalid API key. Please check your API key and try again.");
+                  } else if (error.status === 429) {
+                    throw new Error("Rate limit exceeded or quota finished. Please check your OpenAI account.");
+                  } else {
+                    throw new Error(`API Error: ${error.status} - ${error.message}`);
+                  }
+               }
+               throw new Error("An unexpected error occurred while contacting OpenAI.");
+            });
+            output = response.choices[0]?.message?.content || '';
+        } else {
+          // Gemini generation logic
+          const { GoogleGenerativeAI } = await import('@google/generative-ai');
+          const genAI = new GoogleGenerativeAI(apiKey);
+          const modelName = selectedModel === 'gemini-pro' ? 'gemini-pro' : 'gemini-1.5-flash';
+          const model = genAI.getGenerativeModel({ model: modelName });
+          
+          const result = await model.generateContent([
+            { text: systemPrompt },
+            { text: userPrompt }
+          ]);
+          
+          const response = await result.response;
+          output = response.text();
+        }
 
-          // --- Save to History --- 
-          // Get font used for generation
-          chrome.storage.local.get('selectedFont', (result) => {
-             const fontUsed: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
-             // Determine filename *before* saving to history
-             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-             
-             // --- Filename Logic with updated priority ---
-             let determinedFilename: string;
-             if (pdfFilename.trim()) {
-               // Priority 1: Optional filename input provided
-               determinedFilename = `${pdfFilename.trim().replace(/\.pdf$/i, '')}.pdf`;
-             } else if (useCustomDefaultFilename && customDefaultFilename.trim()) {
-               // Priority 2: Custom default filename setting enabled and set
-               determinedFilename = `${customDefaultFilename.trim().replace(/\.pdf$/i, '')}.pdf`; // NO timestamp
-             } else {
-               // Priority 3: Fallback to hardcoded default + timestamp
-               determinedFilename = `cover_letter_${timestamp}.pdf`;
-             }
-             // -------------------------------------------
-             
-             // === Call the callback to notify App instead of adding directly ===
-             onGenerationComplete({
-               content: output,
-               font: fontUsed,
-               filename: determinedFilename
-             });
-             // ================================================================
+        setGeneratedCoverLetterOutput(output);
 
-             // --- Auto Download Logic (still needed here) ---
-             if(autoDownload && output) {
-                const doc = generatePDF(output, fontUsed); 
-                doc.save(determinedFilename); // Use the determined filename
-             }
-          });
-          // -----------------------
+        // --- Save to History --- 
+        chrome.storage.local.get('selectedFont', (result) => {
+           const fontUsed: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
+           const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+           
+           let determinedFilename: string;
+           if (pdfFilename.trim()) {
+             determinedFilename = `${pdfFilename.trim().replace(/\.pdf$/i, '')}.pdf`;
+           } else if (useCustomDefaultFilename && customDefaultFilename.trim()) {
+             determinedFilename = `${customDefaultFilename.trim().replace(/\.pdf$/i, '')}.pdf`;
+           } else {
+             determinedFilename = `cover_letter_${timestamp}.pdf`;
+           }
+           
+           onGenerationComplete({
+             content: output,
+             font: fontUsed,
+             filename: determinedFilename
+           });
+
+           if(autoDownload && output) {
+              const doc = generatePDF(output, fontUsed); 
+              doc.save(determinedFilename);
+           }
+        });
 
      } catch (err: any) {
          console.error("Generate Automatic Error:", err);
           if (err.message.includes("API key") || err.message.includes("Rate limit") || err.message.includes("quota")) {
-             setApiKeyError(err.message); // Set specific API key error
+             setApiKeyError(err.message);
           } else {
              setAutomaticError(err.message || "Failed to generate cover letter.");
           }
@@ -678,7 +691,9 @@ ${resumeContent}`;
             <TabsContent value="automatic" className="mt-4 space-y-4">
                 {/* API Key Section - Updated Logic */}
                  <div className="space-y-2">
-                   <Label htmlFor="api-key-input" className="text-base font-medium">OpenAI API Key</Label>
+                   <Label htmlFor="api-key-input" className="text-base font-medium">
+                     {selectedModel.startsWith('openai') ? 'OpenAI API Key' : 'Google Gemini API Key'}
+                   </Label>
                    
                    {/* Conditional Rendering based on apiKey existence and editing state */}                  
                    {/* Show display mode ONLY if a valid key is saved AND we are not editing */}
@@ -687,7 +702,9 @@ ${resumeContent}`;
                      <div className="flex items-center space-x-2">
                        <KeyRound className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                        <span className="flex-grow p-2 border rounded-md bg-muted text-muted-foreground text-sm font-mono overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
-                         sk-{apiKey.slice(3, 10)}{'•'.repeat(Math.max(0, apiKey.length - 10))}
+                         {selectedModel.startsWith('openai') 
+                           ? `sk-${apiKey.slice(3, 10)}${'•'.repeat(Math.max(0, apiKey.length - 10))}`
+                           : `${apiKey.slice(0, 7)}${'•'.repeat(Math.max(0, apiKey.length - 7))}`}
                        </span>
                        <TooltipProvider delayDuration={100}>
                           <Tooltip>
@@ -709,7 +726,7 @@ ${resumeContent}`;
                                 className="h-9 w-9 text-destructive hover:text-destructive"
                                 onClick={() => {
                                   if (window.confirm('Are you sure you want to delete your saved API key?')) {
-                                    chrome.storage.local.remove('openaiApiKey', () => {
+                                    chrome.storage.local.remove(selectedModel.startsWith('openai') ? 'openaiApiKey' : 'geminiApiKey', () => {
                                       if (chrome.runtime.lastError) {
                                         console.error('Error deleting API key:', chrome.runtime.lastError);
                                         setApiKeyError('Failed to delete API key.');
@@ -738,7 +755,9 @@ ${resumeContent}`;
                        <Input
                          id="api-key"
                          type="password"
-                         placeholder="Enter your OpenAI API Key (sk-...)"
+                         placeholder={selectedModel.startsWith('openai') 
+                           ? "Enter your OpenAI API Key (sk-...)"
+                           : "Enter your Google Gemini API Key"}
                          value={apiKey}
                          onChange={(e) => handleApiKeyChange(e.target.value)}
                          className={cn("flex-grow", apiKeyError && "border-destructive", "bg-white")}

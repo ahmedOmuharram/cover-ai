@@ -30,6 +30,8 @@ interface SettingsViewProps {
   handleSetMaxWords: (words: number) => void;
   pdfFontSize: number;
   handleSetPdfFontSize: (size: number) => void;
+  selectedModel: 'openai-gpt4' | 'openai-o4mini' | 'gemini-pro' | 'gemini-1.5-flash';
+  setSelectedModel: (model: 'openai-gpt4' | 'openai-o4mini' | 'gemini-pro' | 'gemini-1.5-flash') => void;
 }
 
 const SettingsView: React.FC<SettingsViewProps> = ({
@@ -52,6 +54,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   handleSetMaxWords,
   pdfFontSize,
   handleSetPdfFontSize,
+  selectedModel,
+  setSelectedModel,
 }) => {
 
   // State local to SettingsView for editing custom filename
@@ -102,14 +106,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({
 
   // --- Handler for Clearing API Key (Local to SettingsView) ---
   const handleClearApiKey = () => {
-    if (window.confirm('Are you sure you want to permanently remove your saved OpenAI API key?')) {
-        chrome.storage.local.remove(['openaiApiKey'], () => {
+    if (window.confirm('Are you sure you want to permanently remove your saved API keys?')) {
+        chrome.storage.local.remove(['openaiApiKey', 'geminiApiKey'], () => {
           if (chrome.runtime.lastError) {
-            console.error('Error clearing API key:', chrome.runtime.lastError);
-            // Optionally show an error to the user
+            console.error('Error clearing API keys:', chrome.runtime.lastError);
           } else {
-            console.log('API key cleared successfully');
-            // Optionally show a success message
+            console.log('API keys cleared successfully');
           }
         });
       }
@@ -118,325 +120,350 @@ const SettingsView: React.FC<SettingsViewProps> = ({
 
 
   return (
-    // JSX from App.tsx will be pasted here
-    <Card className="h-full gap-3">
-        {/* Content will be moved here */}
+    <div className="space-y-6 p-4">
+      <Card className="h-full gap-3">
         <CardHeader>
-            <CardTitle className="text-2xl tracking-tight mb-0">Settings</CardTitle>
+          <CardTitle className="text-2xl tracking-tight mb-0">Settings</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col justify-between h-full p-5 pt-0 mt-0">
-            {/* Top settings: tone, auto-copy, auto-download */}
-                      <div className="space-y-6">
-                        {/* Tone Selection Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="tone-select" className="flex-shrink-0">
-                            Generation Tone
-                          </Label>
-                          <div className="flex-grow">
-                            <Select
-                              value={tone}
-                              onValueChange={(value: ToneSetting) => handleToneChange(value)}
-                            >
-                              <SelectTrigger id="tone-select" className="w-full">
-                                <SelectValue placeholder="Select tone" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="professional">Professional</SelectItem>
-                                <SelectItem value="friendly">Friendly</SelectItem>
-                                <SelectItem value="casual">Casual</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        {/* PDF Font Selection Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="font-select" className="flex-shrink-0">
-                            Font (PDFs)
-                          </Label>
-                          <div className="flex-grow">
-                            <Select
-                              value={selectedFont}
-                              onValueChange={(value: 'times' | 'helvetica') => {
-                                setSelectedFont(value);
-                                // Storage logic handled in App.tsx wrapper
-                              }}
-                            >
-                              <SelectTrigger id="font-select" className="w-full">
-                                <SelectValue placeholder="Select font" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="times">Times New Roman</SelectItem>
-                                <SelectItem value="helvetica">Helvetica</SelectItem> 
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        {/* Max Words Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="max-words-input" className="flex-shrink-0 flex-grow">
-                            Word Count (Approx.)
-                          </Label>
-                          <div className="ml-auto">
-                            <Input
-                              id="max-words-input"
-                              type="number"
-                              value={inputValue}
-                              min={1}
-                              step={10}
-                              onChange={(e) => {
-                                const currentVal = e.target.value;
-                                console.log('[onChange] Raw Value:', currentVal);
-                                setInputValue(currentVal);
+          <div className="space-y-6">
+            {/* Add AI Model Selection */}
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="model-select" className="flex-shrink-0">
+                AI Model
+              </Label>
+              <div className="flex-grow">
+                <Select
+                  value={selectedModel}
+                  onValueChange={(value: 'openai-gpt4' | 'openai-o4mini' | 'gemini-pro' | 'gemini-1.5-flash') => {
+                    setSelectedModel(value);
+                    chrome.storage.local.set({ selectedModel: value });
+                  }}
+                >
+                  <SelectTrigger id="model-select" className="w-full">
+                    <SelectValue placeholder="Select AI Model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="openai-gpt4">OpenAI GPT-4</SelectItem>
+                    <SelectItem value="openai-o4mini">OpenAI o4 Mini</SelectItem>
+                    <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
+                    <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-                                const numValue = parseInt(currentVal, 10);
-                                console.log('[onChange] Parsed Value:', numValue);
-                                if (!isNaN(numValue) && numValue >= 1) {
-                                  console.log('[onChange] Condition PASSED, calling handleSetMaxWords');
-                                  handleSetMaxWords(numValue);
-                                } else {
-                                  console.log('[onChange] Condition FAILED');
-                                }
-                              }}
-                              onBlur={(e) => {
-                                console.log('[onBlur] Input Value:', inputValue);
-                                const finalNumValue = parseInt(inputValue, 10);
-                                console.log('[onBlur] Parsed Value:', finalNumValue);
-                                if (inputValue === '' || isNaN(finalNumValue) || finalNumValue < 1) {
-                                  console.log('[onBlur] Condition PASSED, resetting to 270');
-                                  handleSetMaxWords(270);
-                                } else {
-                                  console.log('[onBlur] Condition FAILED, value is valid');
-                                }
-                              }}
-                              className="w-24"
-                            />
-                          </div>
-                        </div>
-                        {/* Font Size Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="font-size-input" className="flex-shrink-0 flex-grow">
-                            PDF Font Size (pt)
-                          </Label>
-                          <div className="ml-auto">
-                            <Input
-                              id="font-size-input"
-                              type="number"
-                              value={fontSizeInputValue}
-                              min={1}
-                              step={1}
-                              onChange={(e) => {
-                                // Only update the local display value on change
-                                setFontSizeInputValue(e.target.value);
-                              }}
-                              onBlur={(e) => {
-                                const finalNumValue = parseInt(fontSizeInputValue, 10);
-                                // Validate on blur: check if empty, invalid, or below minimum
-                                if (fontSizeInputValue === '' || isNaN(finalNumValue) || finalNumValue < 1) { 
-                                  // If invalid, reset parent state AND local state to default (12)
-                                  handleSetPdfFontSize(12); 
-                                  setFontSizeInputValue('12'); // Directly set input value back
-                                } else {
-                                  // If valid, ensure parent state has the final valid number
-                                  handleSetPdfFontSize(finalNumValue);
-                                  // Optionally ensure local state matches exactly if parsing changed it (e.g., leading zeros)
-                                  setFontSizeInputValue(String(finalNumValue)); 
-                                }
-                              }}
-                              className="w-24 text-right"
-                            />
-                          </div>
-                        </div>
-                        {/* Auto-copy Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="auto-copy" className="flex-grow">
-                            Auto-copy prompt to clipboard?
-                          </Label>
-                          <div className="ml-auto flex items-center space-x-2">
-                            <Checkbox
-                              id="auto-copy"
-                              checked={autoCopy}
-                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
-                              onCheckedChange={(checked) => {
-                                const isChecked = !!checked;
-                                setAutoCopy(isChecked);
-                                // Storage logic handled in App.tsx wrapper
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {/* Auto-download Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="auto-download" className="flex-grow">
-                            Auto-download cover letter as PDF?
-                          </Label>
-                          <div className="ml-auto flex items-center space-x-2">
-                            <Checkbox
-                              id="auto-download"
-                              checked={autoDownload}
-                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
-                              onCheckedChange={(checked) => {
-                                const isChecked = !!checked;
-                                setAutoDownload(isChecked);
-                                // Storage logic handled in App.tsx wrapper
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {/* Use Additional Context Setting */}
-                        <div className="flex items-center space-x-4">
-                          <Label htmlFor="additional-context" className="flex-grow">
-                            Use additional context for generation?
-                          </Label>
-                          <div className="ml-auto flex items-center space-x-2">
-                            <Checkbox
-                              id="additional-context"
-                              checked={useAdditionalContext}
-                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
-                              onCheckedChange={(checked) => {
-                                const isChecked = !!checked;
-                                setUseAdditionalContext(isChecked);
-                                // Storage logic handled in App.tsx wrapper
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {/* --- Custom Default Filename Setting (Moved into main block) --- */}
-                      {/* Main Checkbox Row */}
-                      <div className="flex items-center space-x-4">
-                        <Label htmlFor="custom-default-filename-checkbox" className="flex-grow">
-                          Use Custom Default Filename for PDF Downloads?
-                        </Label>
-                        <div className="ml-auto flex items-center space-x-2">
-                            <Checkbox
-                              id="custom-default-filename-checkbox"
-                              checked={useCustomDefaultFilename}
-                              className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
-                              onCheckedChange={(checked) => {
-                                const isChecked = !!checked;
-                                setUseCustomDefaultFilename(isChecked);
-                                // Storage logic handled in App.tsx wrapper
-                              }}
-                            />
-                        </div>
-                      </div>
+            {/* Tone Selection Setting */}
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="tone-select" className="flex-shrink-0">
+                Generation Tone
+              </Label>
+              <div className="flex-grow">
+                <Select
+                  value={tone}
+                  onValueChange={(value: ToneSetting) => handleToneChange(value)}
+                >
+                  <SelectTrigger id="tone-select" className="w-full">
+                    <SelectValue placeholder="Select tone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="friendly">Friendly</SelectItem>
+                    <SelectItem value="casual">Casual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {/* PDF Font Selection Setting */}
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="font-select" className="flex-shrink-0">
+                Font (PDFs)
+              </Label>
+              <div className="flex-grow">
+                <Select
+                  value={selectedFont}
+                  onValueChange={(value: 'times' | 'helvetica') => {
+                    setSelectedFont(value);
+                    // Storage logic handled in App.tsx wrapper
+                  }}
+                >
+                  <SelectTrigger id="font-select" className="w-full">
+                    <SelectValue placeholder="Select font" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="times">Times New Roman</SelectItem>
+                    <SelectItem value="helvetica">Helvetica</SelectItem> 
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {/* Max Words Setting */}
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="max-words-input" className="flex-shrink-0 flex-grow">
+                Word Count (Approx.)
+              </Label>
+              <div className="ml-auto">
+                <Input
+                  id="max-words-input"
+                  type="number"
+                  value={inputValue}
+                  min={1}
+                  step={10}
+                  onChange={(e) => {
+                    const currentVal = e.target.value;
+                    console.log('[onChange] Raw Value:', currentVal);
+                    setInputValue(currentVal);
 
-                      {/* Conditional Input/Edit Section - Rendered below if checkbox is checked */}
-                      {useCustomDefaultFilename && (
-                        <div className="pl-7 mt-3 space-y-2"> {/* Add margin-top (mt-3) here */}
-                          {customDefaultFilename && !isEditingCustomFilename ? (
-                            <div className="flex items-center space-x-2">
-                              <Input
-                                readOnly
-                                value={customDefaultFilename}
-                                className="flex-grow h-8 text-sm bg-muted border-muted"
-                              />
-                              <TooltipProvider delayDuration={100}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" onClick={() => {
-                                      setFilenameInput(customDefaultFilename); // Ensure input state matches before edit
-                                      setIsEditingCustomFilename(true);
-                                    }} className="h-8 w-8">
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p>Edit</p></TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={handleClearCustomFilename}>
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p>Clear</p></TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          ) : (
-                            // Input/Edit Mode
-                            <div className="flex items-center space-x-2">
-                              <Input
-                                id="custom-default-filename-input"
-                                type="text"
-                                placeholder="default: cover_letter[timestamp]"
-                                value={filenameInput} // Use local filenameInput state
-                                onChange={(e) => setFilenameInput(e.target.value)} // Update local filenameInput state
-                                className="flex-grow h-8 text-sm bg-background"
-                              />
-                              {isEditingCustomFilename ? (
-                                 <TooltipProvider delayDuration={100}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        {/* Disable save if input hasn't changed from original or is empty */}
-                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-[#245F73] text-primary-foreground" disabled={!filenameInput.trim() || filenameInput.trim() === customDefaultFilename}>
-                                          <Check className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent><p>Save</p></TooltipContent>
-                                    </Tooltip>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={handleCancelCustomFilenameEdit} className="h-8 w-8">
-                                          <X className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent><p>Cancel</p></TooltipContent>
-                                    </Tooltip>
-                                 </TooltipProvider>
-                              ) : (
-                                // Show save button only if there's text and it's not the edit mode
-                                filenameInput.trim() && (
-                                  <TooltipProvider delayDuration={100}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-[#245F73] text-primary-foreground">
-                                          <Check className="h-4 w-4" />
-                                        </Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent><p>Save</p></TooltipContent>
-                                    </Tooltip>
-                                   </TooltipProvider>
-                                )
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {/* --- End Custom Default Filename Setting --- */}
+                    const numValue = parseInt(currentVal, 10);
+                    console.log('[onChange] Parsed Value:', numValue);
+                    if (!isNaN(numValue) && numValue >= 1) {
+                      console.log('[onChange] Condition PASSED, calling handleSetMaxWords');
+                      handleSetMaxWords(numValue);
+                    } else {
+                      console.log('[onChange] Condition FAILED');
+                    }
+                  }}
+                  onBlur={(e) => {
+                    console.log('[onBlur] Input Value:', inputValue);
+                    const finalNumValue = parseInt(inputValue, 10);
+                    console.log('[onBlur] Parsed Value:', finalNumValue);
+                    if (inputValue === '' || isNaN(finalNumValue) || finalNumValue < 1) {
+                      console.log('[onBlur] Condition PASSED, resetting to 270');
+                      handleSetMaxWords(270);
+                    } else {
+                      console.log('[onBlur] Condition FAILED, value is valid');
+                    }
+                  }}
+                  className="w-24"
+                />
+              </div>
+            </div>
+            {/* Font Size Setting */}
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="font-size-input" className="flex-shrink-0 flex-grow">
+                PDF Font Size (pt)
+              </Label>
+              <div className="ml-auto">
+                <Input
+                  id="font-size-input"
+                  type="number"
+                  value={fontSizeInputValue}
+                  min={1}
+                  step={1}
+                  onChange={(e) => {
+                    // Only update the local display value on change
+                    setFontSizeInputValue(e.target.value);
+                  }}
+                  onBlur={(e) => {
+                    const finalNumValue = parseInt(fontSizeInputValue, 10);
+                    // Validate on blur: check if empty, invalid, or below minimum
+                    if (fontSizeInputValue === '' || isNaN(finalNumValue) || finalNumValue < 1) { 
+                      // If invalid, reset parent state AND local state to default (12)
+                      handleSetPdfFontSize(12); 
+                      setFontSizeInputValue('12'); // Directly set input value back
+                    } else {
+                      // If valid, ensure parent state has the final valid number
+                      handleSetPdfFontSize(finalNumValue);
+                      // Optionally ensure local state matches exactly if parsing changed it (e.g., leading zeros)
+                      setFontSizeInputValue(String(finalNumValue)); 
+                    }
+                  }}
+                  className="w-24"
+                />
+              </div>
+            </div>
+            {/* Auto-copy Setting */}
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="auto-copy" className="flex-grow">
+                Auto-copy prompt to clipboard?
+              </Label>
+              <div className="ml-auto flex items-center space-x-2">
+                <Checkbox
+                  id="auto-copy"
+                  checked={autoCopy}
+                  className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
+                  onCheckedChange={(checked) => {
+                    const isChecked = !!checked;
+                    setAutoCopy(isChecked);
+                    // Storage logic handled in App.tsx wrapper
+                  }}
+                />
+              </div>
+            </div>
+            {/* Auto-download Setting */}
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="auto-download" className="flex-grow">
+                Auto-download cover letter as PDF?
+              </Label>
+              <div className="ml-auto flex items-center space-x-2">
+                <Checkbox
+                  id="auto-download"
+                  checked={autoDownload}
+                  className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
+                  onCheckedChange={(checked) => {
+                    const isChecked = !!checked;
+                    setAutoDownload(isChecked);
+                    // Storage logic handled in App.tsx wrapper
+                  }}
+                />
+              </div>
+            </div>
+            {/* Use Additional Context Setting */}
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="additional-context" className="flex-grow">
+                Use additional context for generation?
+              </Label>
+              <div className="ml-auto flex items-center space-x-2">
+                <Checkbox
+                  id="additional-context"
+                  checked={useAdditionalContext}
+                  className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
+                  onCheckedChange={(checked) => {
+                    const isChecked = !!checked;
+                    setUseAdditionalContext(isChecked);
+                    // Storage logic handled in App.tsx wrapper
+                  }}
+                />
+              </div>
+            </div>
+            {/* --- Custom Default Filename Setting (Moved into main block) --- */}
+            {/* Main Checkbox Row */}
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="custom-default-filename-checkbox" className="flex-grow">
+                Use Custom Default Filename for PDF Downloads?
+              </Label>
+              <div className="ml-auto flex items-center space-x-2">
+                  <Checkbox
+                    id="custom-default-filename-checkbox"
+                    checked={useCustomDefaultFilename}
+                    className="data-[state=checked]:bg-[#733E24] data-[state=checked]:border-[#733E24]"
+                    onCheckedChange={(checked) => {
+                      const isChecked = !!checked;
+                      setUseCustomDefaultFilename(isChecked);
+                      // Storage logic handled in App.tsx wrapper
+                    }}
+                  />
+              </div>
+            </div>
 
-                      </div>
-
-            {/* Bottom actions: clear data & API key */}
-             <div className="space-y-6 pt-4 border-t">
-                {/* Clear API Key Setting - Grouping button and text */}
-                <div className="flex items-start space-x-4">
-                  <Label className="pt-1.5 flex-shrink-0">
-                    API Key
-                  </Label>
-                  <div className="flex flex-col items-end flex-grow">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleClearApiKey} // Use local handler
-                    >
-                      Clear Saved API Key
-                    </Button>
+            {/* Conditional Input/Edit Section - Rendered below if checkbox is checked */}
+            {useCustomDefaultFilename && (
+              <div className="pl-7 mt-3 space-y-2"> {/* Add margin-top (mt-3) here */}
+                {customDefaultFilename && !isEditingCustomFilename ? (
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      readOnly
+                      value={customDefaultFilename}
+                      className="flex-grow h-8 text-sm bg-muted border-muted"
+                    />
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={() => {
+                            setFilenameInput(customDefaultFilename); // Ensure input state matches before edit
+                            setIsEditingCustomFilename(true);
+                          }} className="h-8 w-8">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Edit</p></TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={handleClearCustomFilename}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Clear</p></TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
-                </div>
-                {/* Clear Database Setting - Restructured */}
-                <div className="flex items-start space-x-4">
-                  <Label className="pt-1.5 flex-shrink-0">
-                    Manage Files
-                  </Label>
-                  <div className="flex flex-col items-end flex-grow">
-                    <Button variant="destructive" size="sm" onClick={handleClearDatabase}>
-                      Delete All Documents
-                    </Button>
+                ) : (
+                  // Input/Edit Mode
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      id="custom-default-filename-input"
+                      type="text"
+                      placeholder="default: cover_letter[timestamp]"
+                      value={filenameInput} // Use local filenameInput state
+                      onChange={(e) => setFilenameInput(e.target.value)} // Update local filenameInput state
+                      className="flex-grow h-8 text-sm bg-background"
+                    />
+                    {isEditingCustomFilename ? (
+                       <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              {/* Disable save if input hasn't changed from original or is empty */}
+                              <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-[#245F73] text-primary-foreground" disabled={!filenameInput.trim() || filenameInput.trim() === customDefaultFilename}>
+                                <Check className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Save</p></TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={handleCancelCustomFilenameEdit} className="h-8 w-8">
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Cancel</p></TooltipContent>
+                          </Tooltip>
+                       </TooltipProvider>
+                    ) : (
+                      // Show save button only if there's text and it's not the edit mode
+                      filenameInput.trim() && (
+                        <TooltipProvider delayDuration={100}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button onClick={handleSaveCustomFilename} size="icon" className="h-8 w-8 bg-[#245F73] text-primary-foreground">
+                                <Check className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Save</p></TooltipContent>
+                          </Tooltip>
+                         </TooltipProvider>
+                      )
+                    )}
                   </div>
+                )}
+              </div>
+            )}
+            {/* --- End Custom Default Filename Setting --- */}
+
+          </div>
+
+          {/* Bottom actions: clear data & API key */}
+           <div className="space-y-6 pt-4 border-t mt-8">
+              {/* Clear API Key Setting - Grouping button and text */}
+              <div className="flex items-start space-x-4">
+                <Label className="pt-1.5 flex-shrink-0">
+                  API Key
+                </Label>
+                <div className="flex flex-col items-end flex-grow">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearApiKey} // Use local handler
+                  >
+                    Clear API Keys
+                  </Button>
                 </div>
               </div>
+              {/* Clear Database Setting - Restructured */}
+              <div className="flex items-start space-x-4">
+                <Label className="pt-1.5 flex-shrink-0">
+                  Manage Files
+                </Label>
+                <div className="flex flex-col items-end flex-grow">
+                  <Button variant="destructive" size="sm" onClick={handleClearDatabase}>
+                    Delete All Files
+                  </Button>
+                </div>
+              </div>
+            </div>
         </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 };
 
