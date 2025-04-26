@@ -166,7 +166,7 @@ const GenerationView: React.FC<GenerationViewProps> = ({
         setResumes(resumeData.map((r: DocumentInfo) => ({ id: r.id, name: r.name })));
 
         // Load API key from local storage based on selected model
-        const storageKey = selectedModel === 'openai-gpt4' ? 'openaiApiKey' : selectedModel === 'openai-o4mini' ? 'openaiApiKey' : selectedModel === 'gemini-pro' ? 'geminiApiKey' : 'geminiApiKey';
+        const storageKey = selectedModel.startsWith('openai') ? 'openaiApiKey' : 'geminiApiKey';
         chrome.storage.local.get([storageKey, 'tone', 'autoCopy'], (localResult) => {
           if (localResult[storageKey]) {
             const loadedKey = localResult[storageKey];
@@ -180,6 +180,7 @@ const GenerationView: React.FC<GenerationViewProps> = ({
               setHasSavedApiKey(true);
             }
           } else {
+            setApiKey('');
             setHasSavedApiKey(false);
           }
           if (localResult.tone) {
@@ -225,7 +226,7 @@ const GenerationView: React.FC<GenerationViewProps> = ({
     chrome.runtime.onMessage.addListener(messageListener);
     return () => chrome.runtime.onMessage.removeListener(messageListener);
 
-  }, []);
+  }, [selectedModel]);
 
   useEffect(() => { // Save selections & JD to session storage on change
     const dataToSave: { [key: string]: any } = {};
@@ -441,21 +442,35 @@ ${resumeContent}`;
           output = data.choices[0]?.message?.content || '';
         } else if (selectedModel === 'gemini-1.5-flash') {
           const model = 'gemini-1.5-flash';
-          const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              model: model,
-              prompt: {
-                text: systemPrompt
-              }
+              contents: [{
+                parts: [{
+                  text: `${systemPrompt}\n\n${userPrompt}`
+                }]
+              }]
             })
           });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Gemini API Error:', errorData);
+            throw new Error(`Gemini API Error: ${errorData.error?.message || 'Unknown error'}`);
+          }
+          
           const data = await response.json();
-          output = data.result.text || '';
+          console.log('Gemini API Response:', data);
+          
+          // Update the response handling for Gemini
+          output = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (!output) {
+            console.error('No text generated in Gemini response:', data);
+            throw new Error('Failed to generate content with Gemini. Please try again.');
+          }
         }
 
         setGeneratedCoverLetterOutput(output);
