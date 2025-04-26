@@ -30,6 +30,8 @@ interface DocumentInfo {
   name: string;
 }
 
+type ModelType = 'openai-gpt4' | 'openai-o4mini' | 'gemini-pro' | 'gemini-1.5-flash';
+
 interface GenerationViewProps {
   autoDownload: boolean; // Prop needed for automatic PDF download
   useAdditionalContext: boolean; // Prop to control using additional context
@@ -41,7 +43,8 @@ interface GenerationViewProps {
   // Add callback prop
   onGenerationComplete: (data: { content: string; font: 'times' | 'helvetica'; filename: string }) => void;
   injectedJobDescription?: string; // Add from incoming changes
-  selectedModel: 'openai-gpt4' | 'openai-o4mini' | 'gemini-pro' | 'gemini-1.5-flash';
+  selectedModel: ModelType;
+  setSelectedModel: (model: ModelType) => void;
 }
 
 const GenerationView: React.FC<GenerationViewProps> = ({ 
@@ -53,7 +56,8 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   pdfFontSize,
   onGenerationComplete,
   injectedJobDescription,
-  selectedModel // Add selectedModel to destructuring
+  selectedModel,
+  setSelectedModel
 }) => {
   // Combined State
   const [coverLetters, setCoverLetters] = useState<DocumentInfo[]>([]);
@@ -237,35 +241,54 @@ const GenerationView: React.FC<GenerationViewProps> = ({
 
   // --- Event Handlers (To be fully implemented) ---
   const handleApiKeyChange = (value: string) => {
-    setApiKey(value);
-    if (value && !validateApiKey(value)) {
-      if (selectedModel.startsWith('openai')) {
+    if (selectedModel.startsWith('openai')) {
+      setApiKey(value);
+      if (value && !validateApiKey(value)) {
         setApiKeyError("Invalid OpenAI API key format (should start with sk-).");
       } else {
-        setApiKeyError("Invalid Gemini API key format.");
+        setApiKeyError('');
       }
     } else {
-      setApiKeyError('');
+      setApiKey(value);
+      if (value && !validateApiKey(value)) {
+        setApiKeyError("Invalid Gemini API key format.");
+      } else {
+        setApiKeyError('');
+      }
     }
   };
 
   const handleSaveApiKey = () => {
-    if (validateApiKey(apiKey)) {
-      const storageKey = selectedModel === 'openai-gpt4' ? 'openaiApiKey' : selectedModel === 'openai-o4mini' ? 'openaiApiKey' : selectedModel === 'gemini-pro' ? 'geminiApiKey' : 'geminiApiKey';
-      chrome.storage.local.set({ [storageKey]: apiKey }, () => {
-        if (chrome.runtime.lastError) {
-          console.error('Error saving API key:', chrome.runtime.lastError);
-          setApiKeyError('Failed to save API key.');
-        } else {
-          setApiKeyError('');
-          setOriginalApiKey(apiKey);
-          setIsEditingApiKey(false);
-          setHasSavedApiKey(true);
-          showToastNotification(`${selectedModel.startsWith('openai') ? 'OpenAI' : 'Gemini'} API Key saved successfully!`);
-        }
-      });
+    if (selectedModel.startsWith('openai')) {
+      if (validateApiKey(apiKey)) {
+        chrome.storage.local.set({ openaiApiKey: apiKey }, () => {
+          if (chrome.runtime.lastError) {
+            setApiKeyError("Failed to save API key. Please try again.");
+          } else {
+            setOriginalApiKey(apiKey);
+            setIsEditingApiKey(false);
+            setHasSavedApiKey(true);
+            setApiKeyError('');
+          }
+        });
+      } else {
+        setApiKeyError("Cannot save invalid API key format.");
+      }
     } else {
-      setApiKeyError(`Cannot save invalid ${selectedModel.startsWith('openai') ? 'OpenAI' : 'Gemini'} API key format.`);
+      if (validateApiKey(apiKey)) {
+        chrome.storage.local.set({ geminiApiKey: apiKey }, () => {
+          if (chrome.runtime.lastError) {
+            setApiKeyError("Failed to save API key. Please try again.");
+          } else {
+            setOriginalApiKey(apiKey);
+            setIsEditingApiKey(false);
+            setHasSavedApiKey(true);
+            setApiKeyError('');
+          }
+        });
+      } else {
+        setApiKeyError("Cannot save invalid Gemini API key format.");
+      }
     }
   };
 
@@ -397,44 +420,42 @@ Resume:
 ${resumeContent}`;
 
         let output = '';
-        if (selectedModel.startsWith('openai')) {
-          const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
-          const modelName = selectedModel === 'openai-gpt4' ? 'gpt-4' : 'o4-mini';
-          const response = await openai.chat.completions.create({
-               model: modelName,
-               messages: [
-                 { role: "system", content: systemPrompt },
-                 { role: "user", content: userPrompt }
-               ],
-               temperature: 0.7
-           }).catch((error) => {
-               console.error("OpenAI API Error:", error);
-               if (error instanceof OpenAI.APIError) {
-                  if (error.status === 401) {
-                    throw new Error("Invalid API key. Please check your API key and try again.");
-                  } else if (error.status === 429) {
-                    throw new Error("Rate limit exceeded or quota finished. Please check your OpenAI account.");
-                  } else {
-                    throw new Error(`API Error: ${error.status} - ${error.message}`);
-                  }
-               }
-               throw new Error("An unexpected error occurred while contacting OpenAI.");
-            });
-            output = response.choices[0]?.message?.content || '';
-        } else {
-          // Gemini generation logic
-          const { GoogleGenerativeAI } = await import('@google/generative-ai');
-          const genAI = new GoogleGenerativeAI(apiKey);
-          const modelName = selectedModel === 'gemini-pro' ? 'gemini-pro' : 'gemini-1.5-flash';
-          const model = genAI.getGenerativeModel({ model: modelName });
-          
-          const result = await model.generateContent([
-            { text: systemPrompt },
-            { text: userPrompt }
-          ]);
-          
-          const response = await result.response;
-          output = response.text();
+        if (selectedModel === 'openai-gpt4' || selectedModel === 'openai-o4mini') {
+          const model = selectedModel === 'openai-gpt4' ? 'gpt-4o' : 'openai-o4mini';
+          const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+              ],
+              ...(model === 'gpt-4o' ? { temperature: 0.7 } : {})
+            })
+          });
+          const data = await response.json();
+          output = data.choices[0]?.message?.content || '';
+        } else if (selectedModel === 'gemini-1.5-flash') {
+          const model = 'gemini-1.5-flash';
+          const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: model,
+              prompt: {
+                text: systemPrompt
+              }
+            })
+          });
+          const data = await response.json();
+          output = data.result.text || '';
         }
 
         setGeneratedCoverLetterOutput(output);

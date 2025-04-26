@@ -146,7 +146,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                   <SelectContent>
                     <SelectItem value="openai-gpt4">OpenAI GPT-4</SelectItem>
                     <SelectItem value="openai-o4mini">OpenAI o4 Mini</SelectItem>
-                    <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
                     <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
                   </SelectContent>
                 </Select>

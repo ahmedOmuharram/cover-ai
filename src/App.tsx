@@ -466,6 +466,7 @@ function App() {
                     pdfFontSize={pdfFontSize}
                     onGenerationComplete={handleGenerationComplete}
                     selectedModel={selectedModel}
+                    setSelectedModel={handleSetSelectedModel}
                   />
                 }
 
