@@ -48,6 +48,9 @@ Cover AI is a Chrome extension that helps you write better cover letters faster 
   - Custom default filename configuration
   - History tracking of generated cover letters
   - Database management
+ 
+## Landing Page 
+[Here](https://jeslynguo6204.github.io/cover-ai-landing-page/) is the landing page for our project! Navigate through to explore the full suite of features, as well as our demo video. 
 
 ## Division of Responsibility
 
