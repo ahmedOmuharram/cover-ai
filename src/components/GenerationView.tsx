@@ -340,12 +340,15 @@ ${resumeContent}
 Instructions:
 1. Adopt the requested tone throughout (professional, friendly, or casual).
 2. Structure:
+   - Header: Reuse the exact header from the base cover letter — including name, address, contact info, formatting, etc.  
    - Date: Use ${currentDate} at the top of the letter
+   - Company: Address it to the company's name at the top of the letter as well. 
    - Greeting: "Dear Hiring Manager," (or a provided name).
    - Opening: One sentence stating the role and why you're excited, weaving in additional context.
    - Body: Two short paragraphs:
      • Match your top 2–3 achievements or skills (from the resume) to the key requirements.
-     • Draw inspiration from the base cover letter, but rewrite in fresh language.
+     • Draw inspiration from the base cover letter (keep the formatting, spacing, and structure from the base the same), 
+     but rewrite in fresh language.
    - Closing: Reiterate enthusiasm, mention fit or context, and include a call to action.
    - Signature: "Sincerely," or "Best regards," + [Your Name - Infer from Resume/CL if possible, otherwise use placeholder].
 3. Length & Format:
@@ -405,11 +408,23 @@ Please generate the complete cover letter now.
         provided resume and job description.  Ensure the final letter adheres to 
         strictly approximately ${maxWords}: don't change the word count by too much from that number
         no matter how illogical or logical it is. To iterate: WORD COUNT MAXIMUM AND MINIMUM IS ${maxWords}.
-         Adapt the tone to be ${tone}. Keep the original cover's header structure exactly the same including spacing, except for the date, which you should change to ${currentDate}.
-        Keep the original cover letter's structure and key points where possible, 
-        but tailor the content specifically to the job description, highlighting 
-        relevant skills and experiences from the resume. ${useAdditionalContext && additionalContext ? ` Also consider the following additional context provided by the user: ${additionalContext}.` : ''} 
-        Respond only with the rewritten cover letter text, nothing else. However, change the wording as needed to match the ${maxWords} word count.`;
+         Adapt the tone to be ${tone}.  ${useAdditionalContext && additionalContext ? ` Also consider the following additional context provided by the user: ${additionalContext}.` : ''} 
+        Respond only with the rewritten cover letter text, nothing else. To reiterate, here is the ideal structure: 
+        
+        2. Structure:
+        - Header: Reuse the exact header from the base cover letter — including name, address, contact info, formatting, etc.  
+        - Date: Use ${currentDate} at the top of the letter
+        - Company: Address it to the company's name at the top of the letter as well. 
+        - Greeting: "Dear Hiring Manager," (or a provided name).
+        - Opening: One sentence stating the role and why you're excited, weaving in additional context.
+        - Body: Two short paragraphs:
+          • Match your top 2–3 achievements or skills (from the resume) to the key requirements.
+          • Draw inspiration from the base cover letter (keep the formatting, spacing, and structure from the base the same), 
+          but rewrite in fresh language.
+        - Closing: Reiterate enthusiasm, mention fit or context, and include a call to action.
+        - Signature: "Sincerely," or "Best regards," + [Your Name - Infer from Resume/CL if possible, otherwise use placeholder].`;
+
+        
 
         const userPrompt = `Job Description:
 ${jobDescriptionText || 'N/A'}
