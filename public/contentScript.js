@@ -32,39 +32,88 @@ function scrapeJobDescription() {
   return '⚠️ Could not find job description on this page.';
 }
 
-// Replace scraping triggers with a 100ms retry interval only on LinkedIn job pages
-;(function() {
-  let hasScraped = false;
-  let lastHref = location.href;
-  const retryInterval = setInterval(() => {
-    const isLinkedInJobPage =
-      location.href.startsWith('https://www.linkedin.com/jobs/view/') ||
-      location.href.startsWith('https://www.linkedin.com/jobs/collections/');
-    if (!isLinkedInJobPage) return;
+let lastUrl = location.href;
 
-    if (location.href !== lastHref) {
-      lastHref = location.href;
-      hasScraped = false;
-      console.log('🔄 URL changed, resetting scraper');
+new MutationObserver(() => {
+  const currentUrl = location.href;
+  if (currentUrl !== lastUrl) {
+    console.log('[contentScript] Detected URL change:', currentUrl);
+    lastUrl = currentUrl;
+    hasScraped = false;
+    setTimeout(() => {
+      sendJobDescription(); // Rescrape when page changes
+    }, 500); // Wait a bit for LinkedIn to load content
+  }
+}).observe(document, { subtree: true, childList: true });
+
+let hasScraped = false;
+
+function sendJobDescription() {
+  if (hasScraped) return;
+  const jobDescription = scrapeJobDescription();
+
+  if (jobDescription.startsWith('⚠️')) return; // skip if failed
+
+  hasScraped = true;
+  console.log('Scraped job description:', jobDescription?.substring(0, 100) + '...');
+
+  chrome.runtime.sendMessage({
+    type: 'SCRAPED_JOB_DESCRIPTION',
+    payload: { text: jobDescription }
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Error sending job description:', chrome.runtime.lastError);
+    } else {
+      console.log('Job description sent successfully, response:', response);
     }
-
-    if (!hasScraped) {
-      const jobDescription = scrapeJobDescription();
-      if (!jobDescription.startsWith('⚠️')) {
-        hasScraped = true;
-        console.log('✅ Scraped job description:', jobDescription.substring(0, 100) + '...');
-        chrome.runtime.sendMessage({
-          type: 'SCRAPED_JOB_DESCRIPTION',
-          payload: { text: jobDescription }
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error('Error sending job description:', chrome.runtime.lastError);
-          } else {
-            console.log('Job description sent successfully, response:', response);
-          }
-        });
-      }
+  });
+}
+/*
+// Function to send the scraped description to the background script
+function sendJobDescription() {
+  const jobDescription = scrapeJobDescription();
+  console.log('Scraped job description:', jobDescription?.substring(0, 100) + '...');
+  
+  // Send the job description to the background script
+  chrome.runtime.sendMessage({
+    type: 'SCRAPED_JOB_DESCRIPTION',
+    payload: { text: jobDescription }
+  }, (response) => {
+    if (chrome.runtime.lastError) {
+      console.error('Error sending job description:', chrome.runtime.lastError);
+    } else {
+      console.log('Job description sent successfully, response:', response);
     }
-  }, 100);
-})();
+  });
+}
+*/
 
+// Execute scraping with a slight delay to allow page to fully load
+setTimeout(() => {
+  sendJobDescription();
+}, 500);
+
+/* Also set up a MutationObserver to detect changes in the page (LinkedIn often loads content dynamically)
+const observer = new MutationObserver((mutations) => {
+  // Check if any mutation added job description elements
+  for (const mutation of mutations) {
+    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+      // If significant changes happened, try to scrape again
+      sendJobDescription();
+      break; // Only need to scrape once per mutation batch
+    }
+  }
+});
+
+// Start observing changes to the DOM
+observer.observe(document.body, {
+  childList: true,
+  subtree: true
+});
+
+// Clean up observer after 10 seconds - LinkedIn should be fully loaded by then
+setTimeout(() => {
+  observer.disconnect();
+}, 10000); 
+
+*/

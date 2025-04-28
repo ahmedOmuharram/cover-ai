@@ -176,7 +176,7 @@ function App() {
 
   useEffect(() => {
     const handleMessage = (message: any, sender: any, sendResponse: any) => {
-      if (message.type === 'JOB_DESCRIPTION_TEXT') {
+      if (message.type === 'JOB_DESCRIPTION_TEXT' || message.type === 'SCRAPED_JOB_DESCRIPTION') {
         console.log('[App.tsx] Message received from background:', message.payload?.text);
         if (message.payload?.text) {
           setIncomingJobDescription(message.payload.text);
