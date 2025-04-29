@@ -28,7 +28,6 @@ function scrapeJobDescription() {
   }
 
   // Final fallback
-  console.warn('⚠️ Could not find a job description on this page.');
   return '⚠️ Could not find job description on this page.';
 }
 
@@ -57,14 +56,25 @@ function sendJobDescription() {
   hasScraped = true;
   console.log('Scraped job description:', jobDescription?.substring(0, 100) + '...');
 
+  // Check if the job description is empty
+  if (!jobDescription || jobDescription.trim() === '') {
+    console.log('⚠️ Job description is empty or invalid, skipping message.');
+    return;
+  }
+
   chrome.runtime.sendMessage({
     type: 'SCRAPED_JOB_DESCRIPTION',
     payload: { text: jobDescription }
   }, (response) => {
+    // Check for errors immediately, especially context invalidated
     if (chrome.runtime.lastError) {
-      console.error('Error sending job description:', chrome.runtime.lastError);
-    } else {
-      console.log('Job description sent successfully, response:', response);
+      // Just return silently if context is invalidated or another error occurs.
+      return; 
+    }
+    
+    // Handle successful response if needed
+    if (response?.status === 'received') {
+      console.log("Background script confirmed receipt.");
     }
   });
 }
