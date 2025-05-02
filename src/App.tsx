@@ -20,7 +20,9 @@ import {
   clearHistory,
   HistoryEntry,
   deleteHistoryEntry,
-  addHistoryEntry
+  addHistoryEntry,
+  handleVersionError,
+  deleteDatabase
 } from "./utils/indexedDB.js";
 
 interface Document {
@@ -36,6 +38,7 @@ function App() {
   const [resumes, setResumes] = useState<Document[]>([]); // Add resumes state
   const [activeView, setActiveView] = useState<ActiveView>("generate"); // Default to 'generate' letters
   const [isLoading, setIsLoading] = useState(true); // Track initial loading
+  const [dbError, setDbError] = useState<string | null>(null); // Add state for database errors
   const [tone, setTone] = useState<ToneSetting>('professional'); // Add state for tone
   const [autoCopy, setAutoCopy] = useState<boolean>(false); // Add state for auto-copy setting
   const [autoDownload, setAutoDownload] = useState<boolean>(false); // Add state for auto-download setting
@@ -53,6 +56,7 @@ function App() {
   // Function to load letters (used in useEffect and after clearing)
   const loadLetters = async () => {
     setIsLoading(true);
+    setDbError(null); // Reset any previous errors
     try {
       const [letters, resumes] = await Promise.all([
         getAllCoverLetters(),
@@ -69,10 +73,10 @@ function App() {
         'useAdditionalContext', 
         'selectedFont', 
         'useCustomDefaultFilename', 
-        'customDefaultFilename', // Load new settings
-        'maxWords', // Load max words setting
-        'pdfFontSize', // Load font size setting
-        'selectedModel' // Load selected model setting
+        'customDefaultFilename',
+        'maxWords',
+        'pdfFontSize',
+        'selectedModel'
       ], (result) => {
         if (result.tone) {
            // Validate loaded tone against defined types
@@ -169,6 +173,20 @@ function App() {
       console.error('Failed to load initial data:', error);
       setCoverLetters([]); // Ensure empty state on error
       setResumes([]); // Also reset resumes on error
+      
+      // Check for specific version error
+      if (typeof error === 'string' && error.includes('version conflict')) {
+        setDbError('Database version conflict detected. Please click "Reset Database" to fix this issue.');
+      } else {
+        // Set general user-friendly error message
+        if (typeof error === 'string') {
+          setDbError(error);
+        } else if (error instanceof Error) {
+          setDbError(error.message);
+        } else {
+          setDbError('Failed to load data from storage. Try refreshing the extension.');
+        }
+      }
     } finally {
       setIsLoading(false);
     }
@@ -224,8 +242,16 @@ function App() {
 
   // Load letters and history from IndexedDB on mount
   useEffect(() => {
+    // Check if IndexedDB is available
+    if (!window.indexedDB) {
+      setDbError('Your browser does not support or has disabled IndexedDB, which is required for this extension.');
+      setIsLoading(false);
+      return;
+    }
+    
+    // Load data
     loadLetters();
-    loadHistory(); // Load history as well
+    loadHistory();
   }, []);
 
   // This handler now *only* adds Cover Letters
@@ -403,6 +429,31 @@ function App() {
     }
   };
 
+  // Handle database reset (for version conflicts)
+  const handleResetDatabase = async () => {
+    setIsLoading(true);
+    setDbError(null);
+    try {
+      // Delete the database entirely
+      await deleteDatabase();
+      // Then attempt to reload the data which will create a fresh database
+      await loadLetters();
+      await loadHistory();
+      console.log('Database reset and reloaded successfully');
+    } catch (error) {
+      console.error('Failed to reset database:', error);
+      if (typeof error === 'string') {
+        setDbError(error);
+      } else if (error instanceof Error) {
+        setDbError(error.message);
+      } else {
+        setDbError('Failed to reset database. Please try reinstalling the extension.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="App flex flex-col h-screen w-screen overflow-hidden bg-background text-foreground rounded-lg shadow-md">
       {/* Loading State */}
@@ -415,6 +466,18 @@ function App() {
         </div>
       )}
       */}
+      {/* Display database error message if one exists */}
+      {dbError && (
+        <div className="error-banner">
+          <p>Database Error: {dbError}</p>
+          <div>
+            <button onClick={() => loadLetters()} className="mr-2">Try Again</button>
+            {dbError.includes('version conflict') && (
+              <button onClick={handleResetDatabase} className="reset-db-btn">Reset Database</button>
+            )}
+          </div>
+        </div>
+      )}
       {/* Content Area - Render based on loading and letters state */}
       {!isLoading && (
         <>

@@ -4,7 +4,7 @@ const DB_NAME = 'CoverLetterDB';
 const COVER_LETTER_STORE = 'coverLetters';
 const RESUME_STORE = 'resumes';
 const HISTORY_STORE = 'generationHistory';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 interface DocumentRecord {
   id: number;
@@ -23,7 +23,26 @@ export interface HistoryEntry {
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
-pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.mjs');
+
+// Initialize PDF worker safely
+const initPdfWorker = () => {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.mjs');
+      console.log('PDF worker initialized with Chrome runtime URL');
+    } else {
+      console.warn('Chrome runtime not available, using default PDF worker path');
+      // Fallback for non-extension environments (like testing)
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+    }
+  } catch (error) {
+    console.error('Error initializing PDF worker:', error);
+  }
+};
+
+// Initialize worker
+initPdfWorker();
+
 /**
  * Opens and returns the IndexedDB database instance.
  * Handles database creation and upgrades.
@@ -34,41 +53,67 @@ const getDb = (): Promise<IDBDatabase> => {
   if (dbPromise) {
     return dbPromise;
   }
+  
   dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    try {
+      console.log('Opening IndexedDB database:', DB_NAME, 'version:', DB_VERSION);
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onupgradeneeded = (event) => {
-      console.log('Database upgrade needed.');
-      const db = (event.target as IDBOpenDBRequest).result;
-      // Create cover letter store if it doesn't exist
-      if (!db.objectStoreNames.contains(COVER_LETTER_STORE)) {
-        db.createObjectStore(COVER_LETTER_STORE, { keyPath: 'id', autoIncrement: true });
-        console.log(`Object store ${COVER_LETTER_STORE} created.`);
-      }
-      // Create resume store if it doesn't exist (handles version upgrade)
-      if (!db.objectStoreNames.contains(RESUME_STORE)) {
-        db.createObjectStore(RESUME_STORE, { keyPath: 'id', autoIncrement: true });
-        console.log(`Object store ${RESUME_STORE} created.`);
-      }
-      // Create history store if it doesn't exist (handles version upgrade)
-      if (!db.objectStoreNames.contains(HISTORY_STORE)) {
-        const historyStore = db.createObjectStore(HISTORY_STORE, { keyPath: 'id', autoIncrement: true });
-        historyStore.createIndex('timestamp', 'timestamp', { unique: false }); // Index for sorting
-        console.log(`Object store ${HISTORY_STORE} created with timestamp index.`);
-      }
-    };
+      request.onupgradeneeded = (event) => {
+        console.log('Database upgrade needed.');
+        const db = (event.target as IDBOpenDBRequest).result;
+        // Create cover letter store if it doesn't exist
+        if (!db.objectStoreNames.contains(COVER_LETTER_STORE)) {
+          db.createObjectStore(COVER_LETTER_STORE, { keyPath: 'id', autoIncrement: true });
+          console.log(`Object store ${COVER_LETTER_STORE} created.`);
+        }
+        // Create resume store if it doesn't exist (handles version upgrade)
+        if (!db.objectStoreNames.contains(RESUME_STORE)) {
+          db.createObjectStore(RESUME_STORE, { keyPath: 'id', autoIncrement: true });
+          console.log(`Object store ${RESUME_STORE} created.`);
+        }
+        // Create history store if it doesn't exist (handles version upgrade)
+        if (!db.objectStoreNames.contains(HISTORY_STORE)) {
+          const historyStore = db.createObjectStore(HISTORY_STORE, { keyPath: 'id', autoIncrement: true });
+          historyStore.createIndex('timestamp', 'timestamp', { unique: false }); // Index for sorting
+          console.log(`Object store ${HISTORY_STORE} created with timestamp index.`);
+        }
+      };
 
-    request.onsuccess = (event) => {
-      console.log('Database opened successfully.');
-      resolve((event.target as IDBOpenDBRequest).result);
-    };
+      request.onsuccess = (event) => {
+        console.log('Database opened successfully.');
+        resolve((event.target as IDBOpenDBRequest).result);
+      };
 
-    request.onerror = (event) => {
-      console.error('IndexedDB error opening database:', (event.target as IDBOpenDBRequest).error);
-      reject('Error opening IndexedDB');
+      request.onerror = (event) => {
+        const error = (event.target as IDBOpenDBRequest).error;
+        console.error('IndexedDB error opening database:', error);
+        console.error('Error name:', error?.name, 'Error message:', error?.message);
+        
+        // Reset the dbPromise so subsequent attempts can try again
+        dbPromise = null;
+        
+        // Check for specific errors
+        if (error?.name === 'SecurityError' || error?.name === 'NotAllowedError') {
+          reject('IndexedDB access was blocked by browser security settings or permissions. Try refreshing or checking privacy settings.');
+        } else if (error?.name === 'VersionError') {
+          reject('IndexedDB version conflict. Please reload the extension.');
+        } else {
+          reject(`Error opening IndexedDB: ${error?.message || 'Unknown error'}`);
+        }
+      };
+
+      request.onblocked = (event) => {
+        console.warn('IndexedDB open request was blocked. Close other tabs with this extension open.');
+        // You might want to prompt the user to close other tabs
+      };
+    } catch (error) {
+      console.error('Exception during IndexedDB initialization:', error);
       dbPromise = null;
-    };
+      reject(`Failed to initialize IndexedDB: ${error}`);
+    }
   });
+  
   return dbPromise;
 };
 
@@ -474,4 +519,50 @@ export const deleteHistoryEntry = async (id: number): Promise<void> => {
       reject(`Error deleting history entry`);
     };
   });
+};
+
+/**
+ * Deletes the IndexedDB database completely.
+ * This is useful for resolving version conflicts by removing the database entirely.
+ * @returns {Promise<void>} A promise that resolves when the database is deleted.
+ */
+export const deleteDatabase = (): Promise<void> => {
+  // Reset our cached promise to ensure we create a new connection after deletion
+  dbPromise = null;
+  
+  return new Promise((resolve, reject) => {
+    console.log(`Attempting to delete IndexedDB database: ${DB_NAME}`);
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    
+    request.onsuccess = () => {
+      console.log(`Successfully deleted database: ${DB_NAME}`);
+      resolve();
+    };
+    
+    request.onerror = (event) => {
+      console.error(`Error deleting database: ${DB_NAME}`, (event.target as IDBOpenDBRequest).error);
+      reject(`Failed to delete database: ${(event.target as IDBOpenDBRequest).error?.message || 'Unknown error'}`);
+    };
+    
+    request.onblocked = () => {
+      console.warn(`Database deletion blocked. Close all other tabs using this extension.`);
+      // Still resolve, as the user can try again after closing tabs
+      resolve();
+    };
+  });
+};
+
+/**
+ * Handles version error by deleting the database and then reopening it.
+ * This acts as a "reset" when version conflicts occur.
+ * @returns {Promise<IDBDatabase>} A promise that resolves with the database instance.
+ */
+export const handleVersionError = async (): Promise<IDBDatabase> => {
+  try {
+    await deleteDatabase();
+    return await getDb();
+  } catch (error) {
+    console.error('Failed to handle version error:', error);
+    throw error;
+  }
 };
