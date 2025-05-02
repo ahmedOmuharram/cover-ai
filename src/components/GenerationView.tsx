@@ -85,6 +85,8 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   // Outputs
   const [manualPromptOutput, setManualPromptOutput] = useState<string>('');
   const [generatedCoverLetterOutput, setGeneratedCoverLetterOutput] = useState<string>('');
+  const [editableCoverLetterText, setEditableCoverLetterText] = useState<string>('');
+  const [isEditingText, setIsEditingText] = useState<boolean>(false);
 
   // UI Feedback State (Toasts, Copy Buttons) - Consider consolidating later if identical
   const [showToast, setShowToast] = useState<boolean>(false);
@@ -374,6 +376,8 @@ Please generate the complete cover letter now.
      setAutomaticError('');
      setApiKeyError(''); // Clear API key error before attempt
      setGeneratedCoverLetterOutput('');
+     setEditableCoverLetterText(''); // Reset editable text
+     setIsEditingText(false); // Reset editing state
      // ... (Adapted logic from AutomaticPage)
      console.log("Generate Automatic clicked");
      try {
@@ -488,6 +492,7 @@ ${resumeContent}`;
         }
 
         setGeneratedCoverLetterOutput(output);
+        setEditableCoverLetterText(output); // Initialize editable text with generated output
 
         // --- Save to History --- 
         chrome.storage.local.get('selectedFont', (result) => {
@@ -503,6 +508,7 @@ ${resumeContent}`;
              determinedFilename = `cover_letter_${timestamp}.pdf`;
            }
            
+           // Store original generated content in history
            onGenerationComplete({
              content: output,
              font: fontUsed,
@@ -510,7 +516,9 @@ ${resumeContent}`;
            });
 
            if(autoDownload && output) {
-              const doc = generatePDF(output, fontUsed); 
+              // Use current edited content if available, otherwise use original
+              const textToDownload = isEditingText ? editableCoverLetterText : output;
+              const doc = generatePDF(textToDownload, fontUsed); 
               doc.save(determinedFilename);
            }
         });
@@ -525,6 +533,48 @@ ${resumeContent}`;
      } finally {
         setIsGeneratingAutomatic(false);
      }
+  };
+
+  // New function to handle editing toggle
+  const toggleEditMode = () => {
+    if (isEditingText) {
+      // Save edits - update the generated output with edited version
+      setGeneratedCoverLetterOutput(editableCoverLetterText);
+      
+      // Save edited content to history if it's different from original
+      if (editableCoverLetterText !== generatedCoverLetterOutput) {
+        // Get current font setting and create a timestamp-based filename
+        chrome.storage.local.get('selectedFont', (result) => {
+          const fontUsed: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          
+          // Determine filename using same logic as before
+          let determinedFilename: string;
+          if (pdfFilename.trim()) {
+            determinedFilename = `${pdfFilename.trim().replace(/\.pdf$/i, '')}_edited.pdf`;
+          } else if (useCustomDefaultFilename && customDefaultFilename.trim()) {
+            determinedFilename = `${customDefaultFilename.trim().replace(/\.pdf$/i, '')}_edited.pdf`;
+          } else {
+            determinedFilename = `cover_letter_${timestamp}_edited.pdf`;
+          }
+          
+          // Save edited version to history
+          onGenerationComplete({
+            content: editableCoverLetterText,
+            font: fontUsed,
+            filename: determinedFilename
+          });
+          
+          // Show feedback
+          showToastNotification('Edits saved and added to history!');
+        });
+      } else {
+        showToastNotification('Edits saved!');
+      }
+    } else {
+      // Start editing - already have editable text initialized
+    }
+    setIsEditingText(!isEditingText);
   };
 
   const copyToClipboardManual = async (text: string, toastMsg?: string) => {
@@ -920,7 +970,27 @@ ${resumeContent}`;
                             <TooltipProvider delayDuration={100}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" onClick={() => copyToClipboardAutomatic(generatedCoverLetterOutput)} className="h-8 w-8">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={toggleEditMode} 
+                                    className="h-8 w-8"
+                                  >
+                                    {isEditingText ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{isEditingText ? "Save Edits" : "Edit Text"}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => copyToClipboardAutomatic(isEditingText ? editableCoverLetterText : generatedCoverLetterOutput)} 
+                                    className="h-8 w-8"
+                                  >
                                     {autoCopyButtonText}
                                   </Button>
                                 </TooltipTrigger>
@@ -935,7 +1005,8 @@ ${resumeContent}`;
                                         // Retrieve font setting before generating PDF
                                         chrome.storage.local.get('selectedFont', (result) => {
                                             const fontToUse: 'times' | 'helvetica' = (result.selectedFont === 'helvetica') ? 'helvetica' : 'times';
-                                            const doc = generatePDF(generatedCoverLetterOutput, fontToUse);
+                                            const textToUse = isEditingText ? editableCoverLetterText : generatedCoverLetterOutput;
+                                            const doc = generatePDF(textToUse, fontToUse);
                                             // Determine filename
                                             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
                                             // --- Filename Logic with updated priority ---
@@ -966,13 +1037,18 @@ ${resumeContent}`;
                        </div>
                        <Textarea
                         id="generated-cover-letter"
-                        readOnly
-                        value={generatedCoverLetterOutput}
+                        readOnly={!isEditingText}
+                        value={isEditingText ? editableCoverLetterText : generatedCoverLetterOutput}
+                        onChange={(e) => isEditingText && setEditableCoverLetterText(e.target.value)}
                         placeholder="Generated cover letter will appear here..."
                         rows={12}
-                        className="text-sm bg-white"
+                        className={`text-sm bg-white ${isEditingText ? 'border-primary' : ''}`}
                        />
-                       {/* Optional Filename Input - REMOVED FROM HERE */}
+                       {isEditingText && (
+                         <p className="text-xs text-muted-foreground">
+                           Edit your cover letter text. Click the pencil icon again to save your changes.
+                         </p>
+                       )}
                      </div>
                   )}
                   {/* Loading Skeleton for Output */}
