@@ -829,7 +829,7 @@ ${resumeContent}`;
                accept=".txt,.doc,.docx,.pdf,.md"
                onChange={handleWritingSampleUpload}
                disabled={isGeneratingPrompt || isGeneratingAutomatic || isProcessingFiles}
-               className="flex-1 bg-white text-sm file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-[#733E24] file:text-white hover:file:bg-[#5e311f]"
+               className="flex-1 text-sm bg-white file:w-full file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-white file:text-black hover:file:bg-muted"
              />
            </div>
            
