@@ -6,8 +6,10 @@ import {
   getAllResumes,
   getResumeContent,
 } from '../utils/indexedDB'; // Assuming indexedDB.js/.ts exists
+import * as pdfjsLib from 'pdfjs-dist';
 import OpenAI from 'openai';
 import { jsPDF } from 'jspdf';
+import mammoth from 'mammoth';
 
 // Shadcn UI Imports
 import { Button } from "@/components/ui/button";
@@ -95,6 +97,14 @@ const GenerationView: React.FC<GenerationViewProps> = ({
   const [autoCopyButtonText, setAutoCopyButtonText] = useState<React.ReactNode>(<ClipboardCopy className="h-4 w-4" />);
 
   const toastTimeoutRef = useRef<number | null>(null);
+
+  // Add new state for writing samples
+  const [writingSamples, setWritingSamples] = useState<File[]>([]);
+  const [writingSampleTexts, setWritingSampleTexts] = useState<string[]>([]);
+  const [isProcessingFiles, setIsProcessingFiles] = useState<boolean>(false);
+
+  // Add state for preview
+  const [previewSampleIndex, setPreviewSampleIndex] = useState<number | null>(null);
 
   // --- Utility Functions (Toast, API Key Validation, PDF Gen) ---
   const showToastNotification = (message: string) => {
@@ -318,6 +328,16 @@ const GenerationView: React.FC<GenerationViewProps> = ({
            day: '2-digit',
            year: 'numeric'
          });
+         
+         // Create writing samples section if samples exist
+         let writingSamplesSection = '';
+         if (writingSamples.length > 0) {
+           writingSamplesSection = '\n\nWriting Samples:\n' + 
+             writingSampleTexts.map((text, index) => 
+               `Sample ${index + 1} (${writingSamples[index].name}):\n${text.substring(0, 1000)}${text.length > 1000 ? '...' : ''}`
+             ).join('\n\n');
+         }
+
          const prompt = `
 You are a professional career coach and expert resume writer.  Use the inputs below (in order) to craft a tailored cover letter.
 
@@ -328,8 +348,7 @@ ${jobDescriptionText || 'N/A'}
 2) Tone:
 ${tone}
 
-3) Additional Context:
-${additionalContext || 'N/A'}
+3) Additional Context:${additionalContext ? `\n${additionalContext}` : ' N/A'}${writingSamplesSection}
 
 4) Base Cover Letter:
 ${coverLetterContent}
@@ -349,7 +368,8 @@ Instructions:
    - Body: Two short paragraphs:
      • Match your top 2–3 achievements or skills (from the resume) to the key requirements.
      • Draw inspiration from the base cover letter (keep the formatting, spacing, and structure from the base the same), 
-     but rewrite in fresh language.
+     but rewrite in fresh language.${writingSamples.length > 0 ? `
+     • If relevant, incorporate themes or style elements from the provided writing samples to showcase writing ability.` : ''}
    - Closing: Reiterate enthusiasm, mention fit or context, and include a call to action.
    - Signature: "Sincerely," or "Best regards," + [Your Name - Infer from Resume/CL if possible, otherwise use placeholder].
 3. Length & Format:
@@ -411,7 +431,13 @@ Please generate the complete cover letter now.
         provided resume and job description.  Ensure the final letter adheres to 
         strictly approximately ${maxWords}: don't change the word count by too much from that number
         no matter how illogical or logical it is. To iterate: WORD COUNT MAXIMUM AND MINIMUM IS ${maxWords}.
-         Adapt the tone to be ${tone}.  ${useAdditionalContext && additionalContext ? ` Also consider the following additional context provided by the user: ${additionalContext}.` : ''} 
+         Adapt the tone to be ${tone}.  ${useAdditionalContext ? 
+          additionalContext ? 
+            ` Also consider the following additional context provided by the user: ${additionalContext}.` : 
+            writingSamples.length > 0 ? 
+              ` Also draw inspiration from the writing samples provided by the user to showcase their writing style.` : 
+              '' 
+          : ''} 
         Respond only with the rewritten cover letter text, nothing else. To reiterate, here is the ideal structure: 
         
         2. Structure:
@@ -423,7 +449,8 @@ Please generate the complete cover letter now.
         - Body: Two short paragraphs:
           • Match your top 2–3 achievements or skills (from the resume) to the key requirements.
           • Draw inspiration from the base cover letter (keep the formatting, spacing, and structure from the base the same), 
-          but rewrite in fresh language.
+          but rewrite in fresh language.${writingSamples.length > 0 ? `
+          • If relevant, incorporate themes or style elements from the provided writing samples to showcase writing ability.` : ''}
         - Closing: Reiterate enthusiasm, mention fit or context, and include a call to action.
         - Signature: "Sincerely," or "Best regards," + [Your Name - Infer from Resume/CL if possible, otherwise use placeholder].`;
 
@@ -438,6 +465,18 @@ ${coverLetterContent}
 Resume:
 ${resumeContent}`;
 
+        // Create writing samples section if samples exist
+        let writingSamplesSection = '';
+        if (writingSamples.length > 0) {
+          writingSamplesSection = '\n\nWriting Samples:\n' + 
+            writingSampleTexts.map((text, index) => 
+              `Sample ${index + 1} (${writingSamples[index].name}):\n${text.substring(0, 1000)}${text.length > 1000 ? '...' : ''}`
+            ).join('\n\n');
+        }
+
+        // Add writing samples to user prompt
+        const userPromptWithSamples = userPrompt + writingSamplesSection;
+
         let output = '';
         if (selectedModel === 'openai-gpt4' || selectedModel === 'openai-o4mini') {
           const model = selectedModel === 'openai-gpt4' ? 'gpt-4o' : 'o4-mini';
@@ -451,7 +490,7 @@ ${resumeContent}`;
               model: model,
               messages: [
                 { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt }
+                { role: "user", content: userPromptWithSamples }
               ],
               ...(model === 'gpt-4o' ? { temperature: 0.7 } : {temperature: 1})
             })
@@ -468,7 +507,7 @@ ${resumeContent}`;
             body: JSON.stringify({
               contents: [{
                 parts: [{
-                  text: `${systemPrompt}\n\n${userPrompt}`
+                  text: `${systemPrompt}\n\n${userPromptWithSamples}`
                 }]
               }]
             })
@@ -595,6 +634,78 @@ ${resumeContent}`;
     } catch (err) { /* ... */ }
   };
 
+  // Modify the handleWritingSampleUpload function to properly parse different file types
+  const handleWritingSampleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    setIsProcessingFiles(true);
+    const files = Array.from(e.target.files);
+    setWritingSamples(prev => [...prev, ...files]);
+    
+    // Process each file to extract text based on file type
+    for (const file of files) {
+      try {
+        let text = '';
+        const fileExtension = file.name.split('.').pop()?.toLowerCase();
+        
+        if (fileExtension === 'pdf') {
+          // Use pdfjsLib to extract text from PDF
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({
+            data: arrayBuffer,
+          }).promise;
+          
+          let pdfText = '';
+          // Extract text from each page
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const content = await page.getTextContent();
+            const pageText = content.items
+              .map((item: any) => ('str' in item ? item.str : ''))
+              .join(' ');
+            pdfText += pageText + '\n';
+          }
+          text = pdfText.trim();
+        } 
+        else if (fileExtension === 'docx') {
+          // Use mammoth to extract text from DOCX
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          text = result.value;
+        } 
+        else {
+          // For plain text files or other formats, read as text
+          text = await file.text();
+        }
+        
+        setWritingSampleTexts(prev => [...prev, text]);
+        console.log(`Successfully extracted text from ${file.name}`);
+      } catch (error) {
+        console.error(`Error reading file ${file.name}:`, error);
+        showToastNotification(`Error reading file: ${file.name}`);
+        // Still add a placeholder for this file to keep indexes aligned
+        setWritingSampleTexts(prev => [...prev, `[Could not extract text from ${file.name}]`]);
+      }
+    }
+    
+    setIsProcessingFiles(false);
+    e.target.value = ''; // Reset the input field
+  };
+
+  // Add function to remove a writing sample
+  const removeWritingSample = (index: number) => {
+    setWritingSamples(prev => prev.filter((_, i) => i !== index));
+    setWritingSampleTexts(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Function to toggle preview
+  const toggleSamplePreview = (index: number) => {
+    if (previewSampleIndex === index) {
+      setPreviewSampleIndex(null);
+    } else {
+      setPreviewSampleIndex(index);
+    }
+  };
 
   // --- Render Logic ---
   if (isInitialLoading) {
@@ -691,17 +802,86 @@ ${resumeContent}`;
 
        {/* Additional Context Textarea (Before Tabs) */}
        {useAdditionalContext && (
-       <div className="space-y-1.5">
-         <Label htmlFor="additional-context">Additional Context (Optional)</Label>
-         <Textarea
-          id="additional-context"
-          placeholder="Provide any extra instructions, details about the company, specific skills to emphasize, etc..."
-          value={additionalContext}
-          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAdditionalContext(e.target.value)}
-          rows={4} // Shorter default height
-          className="min-h-[80px] bg-white placeholder:text-sm"
-          disabled={isGeneratingPrompt || isGeneratingAutomatic}
-         />
+       <div className="space-y-4">
+         <div className="space-y-1.5">
+           <Label htmlFor="additional-context">Additional Context (Optional)</Label>
+           <Textarea
+            id="additional-context"
+            placeholder="Provide any extra instructions, details about the company, specific skills to emphasize, etc..."
+            value={additionalContext}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAdditionalContext(e.target.value)}
+            rows={4} // Shorter default height
+            className="min-h-[80px] bg-white placeholder:text-sm"
+            disabled={isGeneratingPrompt || isGeneratingAutomatic}
+           />
+         </div>
+         
+         {/* Writing Samples File Upload */}
+         <div className="space-y-2">
+           <div className="flex items-center justify-between">
+             <Label className="text-sm">Writing Samples (Optional)</Label>
+             {isProcessingFiles && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+           </div>
+           
+           <div className="flex items-center gap-2">
+             <Input
+               type="file"
+               accept=".txt,.doc,.docx,.pdf,.md"
+               onChange={handleWritingSampleUpload}
+               disabled={isGeneratingPrompt || isGeneratingAutomatic || isProcessingFiles}
+               className="flex-1 bg-white text-sm file:mr-4 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:bg-[#733E24] file:text-white hover:file:bg-[#5e311f]"
+             />
+           </div>
+           
+           {/* List of uploaded writing samples */}
+           {writingSamples.length > 0 && (
+             <div className="mt-2 space-y-2">
+               <p className="text-xs text-muted-foreground">Uploaded files:</p>
+               <div className="max-h-28 overflow-y-auto">
+                 {writingSamples.map((file, index) => (
+                   <div key={index} className="flex flex-col bg-muted rounded-md text-xs mb-1">
+                     <div className="flex items-center justify-between py-1 px-2">
+                       <div className="flex items-center gap-2 truncate max-w-[85%]">
+                         <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           onClick={() => toggleSamplePreview(index)}
+                           className="h-5 w-5 p-0"
+                           disabled={isGeneratingPrompt || isGeneratingAutomatic}
+                         >
+                           {previewSampleIndex === index ? 
+                             <KeyRound className="h-3 w-3" /> : 
+                             <Pencil className="h-3 w-3" />
+                           }
+                         </Button>
+                         <span className="truncate">{file.name}</span>
+                       </div>
+                       <Button 
+                         variant="ghost" 
+                         size="icon" 
+                         onClick={() => removeWritingSample(index)}
+                         className="h-5 w-5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                         disabled={isGeneratingPrompt || isGeneratingAutomatic}
+                       >
+                         <X className="h-3 w-3" />
+                       </Button>
+                     </div>
+                     
+                     {/* Preview panel */}
+                     {previewSampleIndex === index && (
+                       <div className="p-2 border-t border-border/50">
+                         <div className="max-h-32 overflow-y-auto p-1 bg-background rounded text-xs font-mono">
+                           {writingSampleTexts[index]?.substring(0, 500)}
+                           {writingSampleTexts[index]?.length > 500 ? '...' : ''}
+                         </div>
+                       </div>
+                     )}
+                   </div>
+                 ))}
+               </div>
+             </div>
+           )}
+         </div>
        </div>
        )}
 
